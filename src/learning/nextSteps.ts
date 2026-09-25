@@ -1,13 +1,16 @@
-import type { LearningContext, NextStep } from "../core/models";
+import type { LearningContext, NextStep, ProjectAnalysis } from "../core/models";
 import { choosePrimaryDiagnostic } from "./diagnostics";
 
 export class NextStepService {
-  choose(context: LearningContext): NextStep {
-    const candidates = this.collectCandidates(context);
+  choose(context: LearningContext, projectAnalysis?: ProjectAnalysis): NextStep {
+    const candidates = this.collectCandidates(context, projectAnalysis);
     return [...candidates].sort((a, b) => b.priority - a.priority)[0] ?? defaultNextStep;
   }
 
-  collectCandidates(context: LearningContext): readonly NextStep[] {
+  collectCandidates(
+    context: LearningContext,
+    projectAnalysis?: ProjectAnalysis
+  ): readonly NextStep[] {
     const steps: NextStep[] = [];
 
     if (!context.workspace.hasWorkspace) {
@@ -71,6 +74,9 @@ export class NextStepService {
       });
     }
 
+    const projectSteps = collectProjectSteps(projectAnalysis);
+    steps.push(...projectSteps);
+
     if (!context.project.activeFileIsTest) {
       steps.push({
         id: "look-for-test-path",
@@ -97,6 +103,64 @@ export class NextStepService {
 
     return steps;
   }
+}
+
+function collectProjectSteps(projectAnalysis: ProjectAnalysis | undefined): readonly NextStep[] {
+  const snapshot = projectAnalysis?.snapshot;
+  if (!snapshot) {
+    return [];
+  }
+
+  const related = snapshot.relatedFiles[0];
+  const steps: NextStep[] = [];
+
+  if (related?.exists && related.relationship === "test") {
+    steps.push({
+      id: "inspect-related-test",
+      title: "Inspect the related test",
+      detail: `${related.path} appears to cover this source file. Reading it may show the expected behavior.`,
+      priority: 60
+    });
+  }
+
+  if (related?.exists && related.relationship === "source") {
+    steps.push({
+      id: "inspect-related-source",
+      title: "Inspect the related source",
+      detail: `${related.path} appears to be the source file behind this test.`,
+      priority: 60
+    });
+  }
+
+  if (related && !related.exists && related.relationship === "suggested-test") {
+    steps.push({
+      id: "consider-test-location",
+      title: "Consider the project test convention",
+      detail: `${related.path} matches an existing test convention, but CodeShade did not find that file.`,
+      priority: 42
+    });
+  }
+
+  const testScript = snapshot.scripts.find((script) => script.kind === "test");
+  if (testScript) {
+    steps.push({
+      id: "use-test-script-feedback",
+      title: "Use the project test script as feedback",
+      detail: `The project defines a "${testScript.name}" script. Use it as a feedback loop after understanding your change.`,
+      priority: 40
+    });
+  }
+
+  if (snapshot.git.available && snapshot.git.isDirty && snapshot.git.changedFileCount) {
+    steps.push({
+      id: "review-git-changes",
+      title: "Review your local changes",
+      detail: `Git reports ${String(snapshot.git.changedFileCount)} changed file(s). Review the diff to connect edits with behavior.`,
+      priority: 35
+    });
+  }
+
+  return steps;
 }
 
 const defaultNextStep: NextStep = {

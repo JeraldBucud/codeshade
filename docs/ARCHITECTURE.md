@@ -1,6 +1,6 @@
 # CodeShade Architecture
 
-CodeShade is a local-first VS Code extension for learning by working inside real projects. Phase 0 establishes a small, testable extension foundation rather than a final intelligence system.
+CodeShade is a local-first VS Code extension for learning by working inside real projects. Phase 1 extends the Phase 0 foundation with deterministic cached project intelligence.
 
 ## Extension Shape
 
@@ -8,6 +8,7 @@ The extension activates through the CodeShade Activity Bar view and CodeShade co
 
 - `src/context` adapts VS Code workspace, editor, selection, diagnostics and TODO data into plain domain models.
 - `src/learning` contains deterministic language awareness, progressive hints, next-step selection and the future intelligence-provider boundary.
+- `src/project` scans bounded project metadata, detects ecosystems and tools, relates source/test files, and reads optional local Git state.
 - `src/ui` renders Learning Mode using a VS Code Webview View.
 - `src/commands` connects command palette actions to the same services used by the UI.
 - `src/core` defines shared domain models.
@@ -28,9 +29,31 @@ Learning Mode presents immediate context from the active VS Code session:
 
 This phase does not send project data anywhere and does not depend on any model or external service.
 
+## Fast Context And Cached Project Intelligence
+
+Fast editor context still updates on active editor changes, selection changes, active document edits, active document saves and active-file diagnostic changes. These events should keep Learning Mode accurate without doing expensive work.
+
+Project intelligence is cached per active workspace root. It runs on first project load, manual refresh, active project changes, and relevant metadata/source file create/delete/change events. Cursor movement, selection changes, diagnostics and ordinary source edits use cached project intelligence.
+
+Async analysis uses generation checks so stale scans cannot overwrite a newer active-project result.
+
+## Project Scanning Boundaries
+
+Project scanning uses VS Code workspace APIs such as `findFiles`, `RelativePattern` and `workspace.fs` so it can work in local and remote extension hosts. It ignores heavy folders such as `.git`, `node_modules`, `dist`, `build`, `out`, `target`, `coverage`, `.next`, virtualenv folders, vendor and generated folders.
+
+The scanner is bounded to 2,500 relevant files and marks the snapshot as truncated when the limit is exceeded. It primarily uses paths, filenames and known metadata files. It reads only small metadata files such as `package.json`, and it does not load arbitrary source contents.
+
+## Source/Test Relationships
+
+The project layer uses deterministic naming and folder heuristics for JavaScript, TypeScript, Python and Java. It can identify likely existing related files, such as `foo.test.ts`, `test_foo.py`, or `src/test/java/.../FooTest.java`. If a test convention exists but no counterpart is found, CodeShade may suggest a possible test location while clearly marking it as a suggestion rather than an existing file.
+
+## Local Git Adapter
+
+Git awareness is optional and local. When the active project is a file-backed workspace, CodeShade may run bounded `git` commands through `execFile` with `shell: false`, a timeout and bounded output to read branch and working tree state. It does not fetch, pull, push, inspect remotes, run project scripts or modify Git state. If Git is unavailable, Learning Mode continues without Git data.
+
 ## Deterministic Guidance
 
-Phase 0 guidance is intentionally simple. The next-step service ranks local signals such as diagnostics, dirty files, selected code, TODO markers, missing editors and test-file signals. It is designed as replaceable domain logic, not UI code.
+Guidance remains deterministic. The next-step service ranks local editor signals such as diagnostics, dirty files, selected code and TODO markers above generic project suggestions. Project intelligence can add guidance such as inspecting a related test, reading a related source file, using a known test script as a feedback loop, or reviewing local Git changes.
 
 ## Progressive Hints
 
@@ -45,7 +68,7 @@ Hints avoid generating complete replacement code because CodeShade should help t
 
 ## Future Analysis Layer
 
-Richer deterministic project intelligence can be added behind the existing context and learning boundaries. Phase 1 can expand workspace structure analysis, source/test relationships, Git state, package metadata and language-tool signals without rewriting the Activity Bar UI.
+Richer deterministic project intelligence can be added behind the existing context and project boundaries. Future work can deepen language and framework analysis without rewriting the Activity Bar UI.
 
 ## Future Local Intelligence Layer
 

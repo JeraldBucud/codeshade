@@ -44,6 +44,13 @@ export interface WorkspaceContext {
   readonly name: string;
   readonly folderCount: number;
   readonly hasWorkspace: boolean;
+  readonly activeWorkspaceRoot?: WorkspaceRoot;
+}
+
+export interface WorkspaceRoot {
+  readonly name: string;
+  readonly uri: string;
+  readonly path: string;
 }
 
 export interface ProjectSignals {
@@ -86,6 +93,68 @@ export interface NextStep {
   readonly title: string;
   readonly detail: string;
   readonly priority: number;
+}
+
+export type ProjectAnalysisStatus = "no-workspace" | "analyzing" | "ready" | "unavailable";
+
+export type ProjectEcosystem = "javascript" | "typescript" | "python" | "java";
+
+export type PackageTool =
+  "pnpm" | "npm" | "yarn" | "maven" | "gradle" | "pyproject" | "requirements";
+
+export interface ProjectTool {
+  readonly id: PackageTool;
+  readonly label: string;
+  readonly evidence: readonly string[];
+}
+
+export interface ProjectScript {
+  readonly name: string;
+  readonly kind: "test" | "build" | "lint" | "dev" | "start" | "other";
+}
+
+export interface RelatedFileCandidate {
+  readonly path: string;
+  readonly label: string;
+  readonly relationship: "source" | "test" | "suggested-test" | "project-config" | "build-config";
+  readonly confidence: "high" | "medium" | "suggested";
+  readonly exists: boolean;
+  readonly reason: string;
+}
+
+export interface GitProjectState {
+  readonly available: boolean;
+  readonly isRepository: boolean;
+  readonly branch?: string;
+  readonly isDirty?: boolean;
+  readonly changedFileCount?: number;
+  readonly activeFileStatus?:
+    "modified" | "untracked" | "renamed" | "deleted" | "clean" | "unknown";
+  readonly error?: string;
+}
+
+export interface ProjectSnapshot {
+  readonly root: WorkspaceRoot;
+  readonly ecosystems: readonly ProjectEcosystem[];
+  readonly tools: readonly ProjectTool[];
+  readonly manifestFiles: readonly string[];
+  readonly configFiles: readonly string[];
+  readonly sourceRoots: readonly string[];
+  readonly testRoots: readonly string[];
+  readonly sourceFileCount: number;
+  readonly testFileCount: number;
+  readonly scanLimit: number;
+  readonly scanTruncated: boolean;
+  readonly scripts: readonly ProjectScript[];
+  readonly relatedFiles: readonly RelatedFileCandidate[];
+  readonly git: GitProjectState;
+}
+
+export interface ProjectAnalysis {
+  readonly status: ProjectAnalysisStatus;
+  readonly root?: WorkspaceRoot;
+  readonly snapshot?: ProjectSnapshot;
+  readonly message?: string;
 }
 
 export interface IntelligenceProvider {

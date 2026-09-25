@@ -11,6 +11,7 @@ import type {
   ProjectSignals,
   SelectionContext,
   TodoMarker,
+  WorkspaceRoot,
   WorkspaceContext
 } from "../core/models";
 import { isTestFile } from "../learning/languageProfiles";
@@ -36,10 +37,30 @@ export class WorkspaceContextService {
 
   private collectWorkspace(): WorkspaceContext {
     const folders = vscode.workspace.workspaceFolders ?? [];
+    const activeRoot = this.collectActiveWorkspaceRoot();
     return {
       name: vscode.workspace.name ?? folders[0]?.name ?? "No workspace",
       folderCount: folders.length,
-      hasWorkspace: folders.length > 0
+      hasWorkspace: folders.length > 0,
+      activeWorkspaceRoot: activeRoot
+    };
+  }
+
+  private collectActiveWorkspaceRoot(): WorkspaceRoot | undefined {
+    const activeUri = vscode.window.activeTextEditor?.document.uri;
+    const folder =
+      activeUri && activeUri.scheme !== "untitled"
+        ? vscode.workspace.getWorkspaceFolder(activeUri)
+        : vscode.workspace.workspaceFolders?.[0];
+
+    if (!folder) {
+      return undefined;
+    }
+
+    return {
+      name: folder.name,
+      uri: folder.uri.toString(),
+      path: folder.uri.fsPath || folder.uri.path
     };
   }
 

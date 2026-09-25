@@ -47,6 +47,11 @@ Full AST or framework intelligence is planned for later phases.
 
 ## Development Setup
 
+Prerequisites:
+
+- Node.js 22.21.0, matching [.node-version](.node-version). pnpm 11.19.0 requires Node.js 22.13 or newer.
+- pnpm 11.19.0, matching the `packageManager` field in [package.json](package.json).
+
 Install dependencies:
 
 ```bash

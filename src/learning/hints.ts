@@ -4,6 +4,7 @@ import type {
   LearningDiagnostic,
   ProgressiveHint
 } from "../core/models";
+import { choosePrimaryDiagnostic } from "./diagnostics";
 
 const hintLevels: readonly ProgressiveHint["level"][] = [
   "inspect",
@@ -16,7 +17,8 @@ export class ProgressiveHintEngine {
   createSession(context: LearningContext): HintSession {
     return {
       currentIndex: 0,
-      hints: this.generateHints(context)
+      hints: this.generateHints(context),
+      targetKey: createHintTargetKey(context)
     };
   }
 
@@ -43,7 +45,9 @@ export class ProgressiveHintEngine {
   }
 
   private generateHints(context: LearningContext): readonly ProgressiveHint[] {
-    const diagnostic = context.activeEditor?.diagnostics[0];
+    const diagnostic = context.activeEditor
+      ? choosePrimaryDiagnostic(context.activeEditor.diagnostics)
+      : undefined;
 
     if (diagnostic) {
       return createDiagnosticHints(diagnostic);
@@ -86,6 +90,43 @@ export class ProgressiveHintEngine {
       }
     ];
   }
+}
+
+function createHintTargetKey(context: LearningContext): string {
+  const editor = context.activeEditor;
+  if (!editor) {
+    return `status:${context.status}`;
+  }
+
+  const diagnostic = choosePrimaryDiagnostic(editor.diagnostics);
+  if (diagnostic) {
+    return [
+      "diagnostic",
+      editor.relativePath ?? editor.fileName,
+      diagnostic.severity,
+      diagnostic.range.startLine,
+      diagnostic.range.startCharacter,
+      diagnostic.range.endLine,
+      diagnostic.range.endCharacter,
+      diagnostic.source ?? "",
+      diagnostic.code ?? "",
+      diagnostic.message
+    ].join(":");
+  }
+
+  if (editor.selection) {
+    return [
+      "selection",
+      editor.relativePath ?? editor.fileName,
+      editor.selection.range.startLine,
+      editor.selection.range.startCharacter,
+      editor.selection.range.endLine,
+      editor.selection.range.endCharacter,
+      editor.selection.text
+    ].join(":");
+  }
+
+  return `file:${editor.relativePath ?? editor.fileName}`;
 }
 
 function createDiagnosticHints(diagnostic: LearningDiagnostic): readonly ProgressiveHint[] {

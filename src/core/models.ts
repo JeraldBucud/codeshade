@@ -47,7 +47,7 @@ export interface WorkspaceContext {
 }
 
 export interface ProjectSignals {
-  readonly hasTests: boolean;
+  readonly activeFileIsTest: boolean;
 }
 
 export interface LearningContext {
@@ -78,6 +78,7 @@ export interface ProgressiveHint {
 export interface HintSession {
   readonly currentIndex: number;
   readonly hints: readonly ProgressiveHint[];
+  readonly targetKey: string;
 }
 
 export interface NextStep {

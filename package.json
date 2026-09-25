@@ -7,7 +7,6 @@
   "license": "Apache-2.0",
   "publisher": "codeshade-local",
   "engines": {
-    "node": ">=22.13",
     "vscode": "^1.92.0"
   },
   "categories": [
@@ -76,6 +75,25 @@
           "id": "codeshade.learningMode",
           "name": "Learning Mode",
           "type": "webview"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "codeshade.refreshLearningContext",
+          "when": "view == codeshade.learningMode",
+          "group": "navigation@1"
+        },
+        {
+          "command": "codeshade.showNextHint",
+          "when": "view == codeshade.learningMode",
+          "group": "navigation@2"
+        },
+        {
+          "command": "codeshade.resetHints",
+          "when": "view == codeshade.learningMode",
+          "group": "secondary@1"
         }
       ]
     }

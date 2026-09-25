@@ -42,13 +42,29 @@ export class CodeShadeController implements vscode.Disposable {
       vscode.window.onDidChangeActiveTextEditor(() => {
         this.refresh();
       }),
-      vscode.workspace.onDidChangeTextDocument((event) => {
-        if (event.document === vscode.window.activeTextEditor?.document) {
+      vscode.window.onDidChangeTextEditorSelection((event) => {
+        if (event.textEditor === vscode.window.activeTextEditor) {
           this.refresh();
         }
       }),
-      vscode.languages.onDidChangeDiagnostics(() => {
-        this.refresh();
+      vscode.workspace.onDidChangeTextDocument((event) => {
+        if (isActiveDocument(event.document)) {
+          this.refresh();
+        }
+      }),
+      vscode.workspace.onDidSaveTextDocument((document) => {
+        if (isActiveDocument(document)) {
+          this.refresh();
+        }
+      }),
+      vscode.languages.onDidChangeDiagnostics((event) => {
+        const activeDocumentUri = vscode.window.activeTextEditor?.document.uri;
+        if (
+          activeDocumentUri &&
+          event.uris.some((uri) => uri.toString() === activeDocumentUri.toString())
+        ) {
+          this.refresh();
+        }
       })
     );
 
@@ -63,8 +79,18 @@ export class CodeShadeController implements vscode.Disposable {
   }
 
   private refresh(): void {
+    const previousHintSession = this.hintSession;
     this.currentContext = this.contextService.collect();
     this.hintSession = this.hintEngine.createSession(this.currentContext);
+    if (previousHintSession?.targetKey === this.hintSession.targetKey) {
+      this.hintSession = {
+        ...this.hintSession,
+        currentIndex: Math.min(
+          previousHintSession.currentIndex,
+          Math.max(this.hintSession.hints.length - 1, 0)
+        )
+      };
+    }
     this.nextStep = this.nextStepService.choose(this.currentContext);
     this.publish();
   }
@@ -104,4 +130,8 @@ export class CodeShadeController implements vscode.Disposable {
       nextStep: this.nextStep
     });
   }
+}
+
+function isActiveDocument(document: vscode.TextDocument): boolean {
+  return document.uri.toString() === vscode.window.activeTextEditor?.document.uri.toString();
 }

@@ -11,7 +11,7 @@ const baseContext: LearningContext = {
     hasWorkspace: true
   },
   project: {
-    hasTests: false
+    activeFileIsTest: false
   },
   activeEditor: {
     fileName: "index.ts",
@@ -55,6 +55,40 @@ describe("progressive hints", () => {
       "explicit"
     ]);
     expect(session.hints.map((hint) => hint.message).join(" ")).not.toContain("replace");
+  });
+
+  it("uses the primary diagnostic rather than the first diagnostic", () => {
+    const engine = new ProgressiveHintEngine();
+    const session = engine.createSession({
+      ...baseContext,
+      activeEditor: {
+        ...baseContext.activeEditor!,
+        diagnostics: [
+          {
+            message: "Earlier warning.",
+            severity: "warning",
+            range: {
+              startLine: 0,
+              startCharacter: 0,
+              endLine: 0,
+              endCharacter: 5
+            }
+          },
+          {
+            message: "Later error.",
+            severity: "error",
+            range: {
+              startLine: 8,
+              startCharacter: 2,
+              endLine: 8,
+              endCharacter: 7
+            }
+          }
+        ]
+      }
+    });
+
+    expect(engine.currentHint(session)?.relatedDiagnostic?.message).toBe("Later error.");
   });
 
   it("progresses through hints and stops at the final level", () => {

@@ -74,7 +74,7 @@ export class WorkspaceContextService {
 
   private collectProjectSignals(activeEditor: ActiveEditorContext | undefined): ProjectSignals {
     return {
-      hasTests: activeEditor?.relativePath ? isTestFile(activeEditor.relativePath) : false
+      activeFileIsTest: activeEditor?.relativePath ? isTestFile(activeEditor.relativePath) : false
     };
   }
 }

@@ -1,4 +1,5 @@
 import type { LearningContext, NextStep } from "../core/models";
+import { choosePrimaryDiagnostic } from "./diagnostics";
 
 export class NextStepService {
   choose(context: LearningContext): NextStep {
@@ -30,7 +31,7 @@ export class NextStepService {
     }
 
     const editor = context.activeEditor;
-    const firstDiagnostic = editor.diagnostics[0];
+    const firstDiagnostic = choosePrimaryDiagnostic(editor.diagnostics);
 
     if (editor.isUntitled || editor.isDirty) {
       steps.push({
@@ -70,12 +71,12 @@ export class NextStepService {
       });
     }
 
-    if (!context.project.hasTests) {
+    if (!context.project.activeFileIsTest) {
       steps.push({
         id: "look-for-test-path",
         title: "Find a way to verify behavior",
         detail:
-          "No obvious test file is open or detected yet. Look for an existing test command or nearby tests.",
+          "The active file does not look like a test file. Look for an existing test command or nearby tests when you need feedback.",
         priority: 45
       });
     } else {

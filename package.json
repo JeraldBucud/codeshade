@@ -1,0 +1,126 @@
+{
+  "name": "codeshade",
+  "displayName": "CodeShade",
+  "description": "A local-first VS Code learning companion that helps you learn to code by coding.",
+  "version": "0.0.1",
+  "private": true,
+  "license": "Apache-2.0",
+  "publisher": "codeshade-local",
+  "engines": {
+    "vscode": "^1.92.0"
+  },
+  "categories": [
+    "Education",
+    "Other"
+  ],
+  "keywords": [
+    "learning",
+    "education",
+    "local-first",
+    "hints",
+    "programming"
+  ],
+  "main": "./dist/extension.js",
+  "files": [
+    "dist",
+    "resources",
+    "README.md",
+    "LICENSE"
+  ],
+  "activationEvents": [
+    "onView:codeshade.learningMode",
+    "onCommand:codeshade.openLearningMode",
+    "onCommand:codeshade.refreshLearningContext",
+    "onCommand:codeshade.showNextHint",
+    "onCommand:codeshade.resetHints"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "codeshade.openLearningMode",
+        "title": "CodeShade: Open Learning Mode",
+        "category": "CodeShade"
+      },
+      {
+        "command": "codeshade.refreshLearningContext",
+        "title": "CodeShade: Refresh Learning Context",
+        "category": "CodeShade",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "codeshade.showNextHint",
+        "title": "CodeShade: Show Next Hint",
+        "category": "CodeShade",
+        "icon": "$(lightbulb)"
+      },
+      {
+        "command": "codeshade.resetHints",
+        "title": "CodeShade: Reset Hints",
+        "category": "CodeShade",
+        "icon": "$(discard)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "codeshade",
+          "title": "CodeShade",
+          "icon": "resources/codeshade.svg"
+        }
+      ]
+    },
+    "views": {
+      "codeshade": [
+        {
+          "id": "codeshade.learningMode",
+          "name": "Learning Mode",
+          "type": "webview"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "codeshade.refreshLearningContext",
+          "when": "view == codeshade.learningMode",
+          "group": "navigation@1"
+        },
+        {
+          "command": "codeshade.showNextHint",
+          "when": "view == codeshade.learningMode",
+          "group": "navigation@2"
+        },
+        {
+          "command": "codeshade.resetHints",
+          "when": "view == codeshade.learningMode",
+          "group": "secondary@1"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "pnpm typecheck && node esbuild.mjs",
+    "check": "pnpm build && pnpm lint && pnpm format:check && pnpm test",
+    "dev": "node esbuild.mjs --watch",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "@types/vscode": "1.92.0",
+    "@eslint/js": "^9.9.1",
+    "@typescript-eslint/eslint-plugin": "^8.5.0",
+    "@typescript-eslint/parser": "^8.5.0",
+    "esbuild": "^0.23.1",
+    "eslint": "^9.9.1",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.5.4",
+    "typescript-eslint": "^8.5.0",
+    "vitest": "^2.0.5"
+  },
+  "packageManager": "pnpm@11.19.0"
+}

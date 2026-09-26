@@ -51,6 +51,16 @@ export function createVsCodeProjectPersistenceAdapter(
         vscode.Uri.joinPath(directory, projectCatalogFileName),
         encoder.encode(content)
       );
+    },
+    deleteProjectStorage: async (projectId) => {
+      const directory = projectStorageDirectory(globalStorageUri, projectId);
+      try {
+        await vscode.workspace.fs.delete(directory, { recursive: true, useTrash: false });
+      } catch (error) {
+        if (!(error instanceof vscode.FileSystemError) || error.code !== "FileNotFound") {
+          throw error;
+        }
+      }
     }
   };
 }

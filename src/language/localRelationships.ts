@@ -46,7 +46,6 @@ export function resolveLocalRelationships(
   };
 }
 
-
 export function selectLearningRelationship(
   analysis: LanguageAnalysis | undefined,
   activePath?: string
@@ -71,7 +70,10 @@ export function selectLearningRelationship(
   );
 }
 
-function pointsToActiveFile(targetFile: string | undefined, activePath: string | undefined): boolean {
+function pointsToActiveFile(
+  targetFile: string | undefined,
+  activePath: string | undefined
+): boolean {
   if (!targetFile || !activePath) {
     return false;
   }

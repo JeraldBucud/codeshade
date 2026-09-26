@@ -106,7 +106,7 @@ describe("project persistence service", () => {
 
   it("does not overwrite a malformed identity file", async () => {
     const memory = createMemoryAdapter();
-    memory.identities.set(root.uri, "{\"schemaVersion\":1,\"projectId\":\"broken\"}");
+    memory.identities.set(root.uri, '{"schemaVersion":1,"projectId":"broken"}');
     const service = new ProjectPersistenceService(memory.adapter, {
       createId: () => projectId
     });

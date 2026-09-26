@@ -192,18 +192,32 @@ function collectRequirementsNames(text: string): readonly string[] {
 
 function collectKnownFrameworkNames(text: string): readonly string[] {
   const normalized = text.toLowerCase();
-  const names: string[] = [];
-  for (const name of [
-    "django",
-    "spring-boot",
-    "spring-boot-starter",
-    "react",
-    "react-dom",
-    "express"
-  ]) {
+  const names = new Set<string>();
+
+  for (const name of ["django", "react", "react-dom", "express"]) {
     if (normalized.includes(name)) {
-      names.push(name);
+      names.add(name);
     }
   }
-  return names;
+
+  if (
+    normalized.includes("org.springframework.boot") ||
+    normalized.includes("spring-boot-")
+  ) {
+    names.add("spring-boot");
+  }
+
+  if (normalized.includes("spring-boot-starter")) {
+    names.add("spring-boot-starter");
+  }
+
+  for (const match of normalized.matchAll(/spring-boot-starter-[a-z0-9_.-]+/g)) {
+    names.add(match[0]);
+  }
+
+  if (normalized.includes("spring-boot-maven-plugin")) {
+    names.add("spring-boot-maven-plugin");
+  }
+
+  return [...names];
 }

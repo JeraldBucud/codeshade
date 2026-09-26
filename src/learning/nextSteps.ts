@@ -33,7 +33,7 @@ export class NextStepService {
         id: "open-workspace",
         title: "Open a project folder",
         detail:
-          "CodeShade works best when it can read the workspace name and current file context.",
+          "CodingSensei works best when it can read the workspace name and current file context.",
         priority: 100
       });
     }
@@ -249,7 +249,7 @@ function collectProjectSteps(projectAnalysis: ProjectAnalysis | undefined): read
     steps.push({
       id: "consider-test-location",
       title: "Consider the project test convention",
-      detail: `${related.path} matches an existing test convention, but CodeShade did not find that file.`,
+      detail: `${related.path} matches an existing test convention, but CodingSensei did not find that file.`,
       priority: 42
     });
   }

@@ -20,8 +20,7 @@ function createMemoryAdapter() {
   let manifestWrites = 0;
 
   const adapter: ProjectPersistenceAdapter = {
-    readProjectIdentity: (projectRoot) =>
-      Promise.resolve(identities.get(projectRoot.uri)),
+    readProjectIdentity: (projectRoot) => Promise.resolve(identities.get(projectRoot.uri)),
     writeProjectIdentity: (projectRoot, content) => {
       identityWrites += 1;
       identities.set(projectRoot.uri, content);

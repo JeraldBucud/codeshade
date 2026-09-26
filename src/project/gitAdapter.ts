@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import path from "node:path";
 import { promisify } from "node:util";
 
 import type { GitProjectState } from "../core/models";
@@ -18,15 +19,21 @@ export async function readGitState(input: {
       return unavailableGitState("Not a Git repository.");
     }
 
+    const gitRoot = (await execGit(input.rootPath, ["rev-parse", "--show-toplevel"])).trim();
+    const gitRelativeActiveFile = toGitRelativePath({
+      gitRoot,
+      projectRoot: input.rootPath,
+      activeFile: input.activeFile
+    });
     const [branch, status] = await Promise.all([
-      execGit(input.rootPath, ["branch", "--show-current"]),
-      execGit(input.rootPath, ["status", "--porcelain=v1", "-z", "--untracked-files=normal"])
+      execGit(gitRoot, ["branch", "--show-current"]),
+      execGit(gitRoot, ["status", "--porcelain=v1", "-z", "--untracked-files=normal"])
     ]);
 
     return parseGitState({
       branchOutput: branch,
       statusOutput: status,
-      activeFile: input.activeFile
+      activeFile: gitRelativeActiveFile
     });
   } catch (error) {
     return unavailableGitState(error instanceof Error ? error.message : "Git unavailable.");
@@ -42,4 +49,17 @@ async function execGit(cwd: string, args: readonly string[]): Promise<string> {
     windowsHide: true
   });
   return stdout;
+}
+
+export function toGitRelativePath(input: {
+  readonly gitRoot: string;
+  readonly projectRoot: string;
+  readonly activeFile?: string;
+}): string | undefined {
+  if (!input.activeFile) {
+    return undefined;
+  }
+
+  const absoluteActiveFile = path.resolve(input.projectRoot, ...input.activeFile.split("/"));
+  return path.relative(input.gitRoot, absoluteActiveFile).replaceAll(path.sep, "/");
 }

@@ -51,6 +51,8 @@ export interface WorkspaceRoot {
   readonly name: string;
   readonly uri: string;
   readonly path: string;
+  readonly relativePath?: string;
+  readonly containingWorkspaceUri?: string;
 }
 
 export interface ProjectSignals {

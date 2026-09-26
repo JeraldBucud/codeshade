@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { toGitRelativePath } from "../src/project/gitAdapter";
 import { parseGitState, unavailableGitState } from "../src/project/gitState";
 
 describe("git state parsing", () => {
@@ -40,6 +41,23 @@ describe("git state parsing", () => {
 
     expect(git.changedFileCount).toBe(1);
     expect(git.activeFileStatus).toBe("renamed");
+  });
+
+  it("converts project-relative active files to Git-relative paths", () => {
+    const activeFile = toGitRelativePath({
+      gitRoot: "C:/work/smarttech-ebusiness-system",
+      projectRoot: "C:/work/smarttech-ebusiness-system/EBusinessSystem",
+      activeFile: "src/main/java/app/Auth.java"
+    });
+
+    const git = parseGitState({
+      branchOutput: "main\n",
+      statusOutput: " M EBusinessSystem/src/main/java/app/Auth.java\0",
+      activeFile
+    });
+
+    expect(activeFile).toBe("EBusinessSystem/src/main/java/app/Auth.java");
+    expect(git.activeFileStatus).toBe("modified");
   });
 
   it("represents unavailable git without failing project analysis", () => {

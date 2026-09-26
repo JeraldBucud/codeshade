@@ -5,6 +5,7 @@ import type { WorkspaceContextService } from "../context/workspaceContext";
 import type { ProgressiveHintEngine } from "../learning/hints";
 import type { NextStepService } from "../learning/nextSteps";
 import type { ProjectIntelligenceService } from "../project/projectIntelligence";
+import { isPathInsideProject } from "../project/projectRootResolver";
 import { isIgnoredProjectPath } from "../project/projectScanner";
 import { LearningModeViewProvider } from "../ui/learningModeView";
 
@@ -73,19 +74,19 @@ export class CodeShadeController implements vscode.Disposable {
         }
       }),
       projectMetadataWatcher.onDidChange((uri) => {
-        this.invalidateChangedProject(uri);
+        void this.invalidateChangedProject(uri);
       }),
       projectMetadataWatcher.onDidCreate((uri) => {
-        this.invalidateChangedProject(uri);
+        void this.invalidateChangedProject(uri);
       }),
       projectMetadataWatcher.onDidDelete((uri) => {
-        this.invalidateChangedProject(uri);
+        void this.invalidateChangedProject(uri);
       }),
       projectFileWatcher.onDidCreate((uri) => {
-        this.invalidateChangedProject(uri);
+        void this.invalidateChangedProject(uri);
       }),
       projectFileWatcher.onDidDelete((uri) => {
-        this.invalidateChangedProject(uri);
+        void this.invalidateChangedProject(uri);
       }),
       vscode.languages.onDidChangeDiagnostics((event) => {
         const activeDocumentUri = vscode.window.activeTextEditor?.document.uri;
@@ -181,14 +182,20 @@ export class CodeShadeController implements vscode.Disposable {
     this.publish();
   }
 
-  private invalidateChangedProject(uri: vscode.Uri): void {
+  private async invalidateChangedProject(uri: vscode.Uri): Promise<void> {
     const relativePath = vscode.workspace.asRelativePath(uri, false);
     if (isIgnoredProjectPath(relativePath)) {
       return;
     }
 
-    const changedRoot = this.projectService.invalidateUri(uri);
-    if (changedRoot?.uri === this.currentContext?.workspace.activeWorkspaceRoot?.uri) {
+    const changedRoot = await this.projectService.invalidateUri(uri);
+    const activeRoot =
+      this.projectAnalysis?.root ?? this.currentContext?.workspace.activeWorkspaceRoot;
+    const activeFile = this.currentContext?.activeEditor?.relativePath;
+    if (
+      changedRoot?.uri === activeRoot?.uri ||
+      (changedRoot && isPathInsideProject(activeFile, changedRoot))
+    ) {
       this.refresh("force-project");
     }
   }

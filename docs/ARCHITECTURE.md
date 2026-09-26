@@ -33,15 +33,15 @@ This phase does not send project data anywhere and does not depend on any model 
 
 Fast editor context updates on selection changes, ordinary active document edits and active-file diagnostic changes. These events keep Learning Mode accurate using cached project data without structural scanning or Git subprocess refreshes. Active editor changes may refresh Git because active-file status can change, and save events refresh only volatile Git state.
 
-Project intelligence is split into a root-level structural index and an active-file projection. The structural index is cached per workspace root and contains paths, manifests, tool evidence, roots, counts and scripts. Active-file relationships are derived from that cached index, so switching between files in the same root does not call `findFiles` again.
+Project intelligence is split into project-root resolution, a structural index and an active-file projection. The containing VS Code workspace root defines the discovery boundary. From the active file, CodeShade walks upward through ancestors to that workspace boundary and inspects only known strong project-root markers. The nearest strong marker wins; if no marker is found, the workspace root is used as a safe fallback. The structural index is cached by the resolved project-root URI and contains paths, manifests, tool evidence, roots, counts and scripts. Active-file relationships are derived from that cached index, so switching between files in the same resolved project root does not call `findFiles` again.
 
-Structural analysis runs on first project load, manual refresh, active project changes, and relevant metadata/source file create/delete/change events. Cursor movement, selection changes, diagnostics and ordinary source edits use cached project intelligence without refreshing Git.
+Structural analysis runs on first project load, manual refresh, active project changes, and relevant metadata/source file create/delete/change events. Cursor movement, selection changes, diagnostics and ordinary source edits use cached project intelligence without refreshing Git. Switching between sibling projects resolves a different project root and uses a separate cache entry.
 
 Async analysis uses generation checks so stale scans cannot overwrite a newer active-project result. File watcher invalidation is rooted: changes in ignored heavy directories are skipped, and changes in a non-active workspace root invalidate that root without forcing the active Learning Mode view to rescan.
 
 ## Project Scanning Boundaries
 
-Project scanning uses VS Code workspace APIs such as `findFiles`, `RelativePattern` and `workspace.fs` so it can work in local and remote extension hosts. It ignores heavy folders such as `.git`, `node_modules`, `dist`, `build`, `out`, `target`, `coverage`, `.next`, virtualenv folders, vendor and generated folders.
+Project scanning uses VS Code workspace APIs such as `findFiles`, `RelativePattern` and `workspace.fs` so it can work in local and remote extension hosts. Scans are scoped to the resolved active project root, not blindly to the outer workspace folder. CodeShade never walks above the containing workspace root and does not search the user's whole machine. It ignores heavy folders such as `.git`, `node_modules`, `dist`, `build`, `out`, `target`, `coverage`, `.next`, virtualenv folders, vendor and generated folders.
 
 The source scanner is bounded to 2,500 relevant source files and marks the snapshot as truncated when the limit is exceeded. Critical root metadata is discovered separately from this source limit, including extensionless lock and wrapper files such as `yarn.lock`, `gradlew` and `mvnw`. The scanner primarily uses paths, filenames and known metadata files. It reads only small known metadata files such as `package.json`, and it does not load arbitrary source contents.
 
@@ -51,7 +51,7 @@ The project layer uses deterministic naming and folder heuristics for JavaScript
 
 ## Local Git Adapter
 
-Git awareness is optional and local. When the active project is a file-backed workspace, CodeShade may run bounded `git` commands through `execFile` with `shell: false`, a timeout and bounded output to read branch and working tree state. Status is requested with NUL-delimited porcelain output so paths with spaces and renames can be parsed safely. It does not fetch, pull, push, inspect remotes, run project scripts or modify Git state. If Git is unavailable, Learning Mode continues without Git data.
+Git awareness is optional and local. The Git repository root may differ from the active project root, such as a repository containing several nested projects. When the active project is file-backed, CodeShade may run bounded `git` commands through `execFile` with `shell: false`, a timeout and bounded output to read the local top-level, branch and working tree state. Active-file status is compared using a Git-relative path so nested project files still match porcelain output. Status is requested with NUL-delimited porcelain output so paths with spaces and renames can be parsed safely. It does not fetch, pull, push, inspect remotes, run project scripts or modify Git state. If Git is unavailable, Learning Mode continues without Git data.
 
 ## Deterministic Guidance
 

@@ -30,7 +30,7 @@ Future optional intelligence providers must not become required for the core ext
 - Current project, file and language context.
 - Selection summary when code is selected.
 - Active-file diagnostics surfaced as learning context.
-- Cached local project intelligence for the active workspace root.
+- Cached local project intelligence for the resolved active project root.
 - Ecosystem, package/build tool, script and source/test structure signals.
 - Related source/test file suggestions when conventions are clear.
 - Optional local Git branch/change-state awareness.
@@ -51,11 +51,13 @@ Phase 1 detects ecosystems and build/package tools. Full AST or framework intell
 
 ## Project Intelligence
 
-CodeShade analyzes the active workspace folder for deterministic local signals. In multi-root workspaces, Phase 1 treats the workspace folder containing the active editor as the active project, falling back to the first workspace folder when no editor is active.
+CodeShade starts from the VS Code workspace folder that contains the active file, then resolves the active software project by walking upward from that file to the workspace boundary and looking for strong project markers such as `package.json`, `pyproject.toml`, `pom.xml` or `build.gradle`. The nearest strong marker wins, so nested projects such as `workspace/frontend` or `workspace/EBusinessSystem` are treated as the active project instead of the outer workspace folder.
 
-Project analysis keeps a structural index cached per workspace root. Cursor movement, selection changes, diagnostics and ordinary text edits refresh the fast editor context and derive active-file relationships from the cached index without rescanning the project. Manual refresh and relevant source/metadata file changes invalidate the affected root. In multi-root workspaces, changes outside the active root are cached for later but do not force the active Learning Mode view to rescan.
+Project discovery is location-agnostic. It does not depend on whether the workspace lives on Desktop, OneDrive, another drive or a Unix home directory. It also stays inside the folder the user opened in VS Code; CodeShade does not scan the whole computer, mounted drives or unrelated home folders.
 
-CodeShade discovers critical metadata files separately from the bounded source-file scan, so lock files and build wrappers such as `yarn.lock`, `gradlew` and `mvnw` can still be detected when source scanning is truncated. Local Git state is refreshed independently from structural project scanning. CodeShade does not run package scripts, tests, builds, hooks or project code.
+Project analysis keeps a structural index cached per resolved project root. Cursor movement, selection changes, diagnostics and ordinary text edits refresh the fast editor context and derive active-file relationships from the cached index without rescanning the project or refreshing Git. Manual refresh and relevant source/metadata file changes invalidate the affected project root. In multi-root workspaces, changes outside the active project do not force the active Learning Mode view to rescan.
+
+CodeShade discovers critical metadata files separately from the bounded source-file scan, so lock files and build wrappers such as `yarn.lock`, `gradlew` and `mvnw` can still be detected when source scanning is truncated. Local Git state is refreshed independently from structural project scanning, and the Git repository root may be above the active project root. CodeShade does not run package scripts, tests, builds, hooks or project code.
 
 ## Development Setup
 

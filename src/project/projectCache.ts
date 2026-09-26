@@ -15,6 +15,10 @@ export class ProjectIndexCache {
     return this.entries.get(rootUri);
   }
 
+  values(): readonly ProjectCacheEntry[] {
+    return [...this.entries.values()];
+  }
+
   begin(root: WorkspaceRoot): number {
     const generation = (this.generations.get(root.uri) ?? 0) + 1;
     this.generations.set(root.uri, generation);

@@ -7,6 +7,8 @@ import type {
   ProjectPersistenceSummary,
   WorkspaceRoot
 } from "../core/models";
+import type { FrameworkDetection } from "../framework/models";
+import type { LanguageAnalysis, LanguageDocumentInput } from "../language/models";
 import { readGitState } from "./gitAdapter";
 import { ProjectIndexCache } from "./projectCache";
 import type { ProjectPersistenceService } from "./projectPersistence";
@@ -145,6 +147,18 @@ export class ProjectIntelligenceService {
     }
   }
 
+  async saveLanguageKnowledge(
+    root: WorkspaceRoot | undefined,
+    document: LanguageDocumentInput,
+    analysis: LanguageAnalysis,
+    frameworks: readonly FrameworkDetection[]
+  ): Promise<boolean> {
+    if (!root || !this.persistenceService || analysis.status === "unavailable") {
+      return false;
+    }
+    return this.persistenceService.saveFileKnowledge(root, document, analysis, frameworks);
+  }
+
   async clearPersistentData(activeEditor: ActiveEditorContext | undefined): Promise<boolean> {
     if (!this.persistenceService) {
       return false;
@@ -195,6 +209,9 @@ export class ProjectIntelligenceService {
 
     const generation = this.cache.begin(root);
     const index = updateProjectIndexSourcePath(cached.index, activeFile, change);
+    if (change === "delete" && this.persistenceService) {
+      void this.persistenceService.deleteFileKnowledge(root, activeFile);
+    }
     if (this.cache.setCurrent(root, generation, index) && this.persistenceService) {
       void this.persistenceService.saveProjectCatalog(root, index);
     }

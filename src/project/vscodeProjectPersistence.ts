@@ -1,0 +1,67 @@
+import * as vscode from "vscode";
+
+import type { WorkspaceRoot } from "../core/models";
+import {
+  projectIdentityDirectoryName,
+  projectIdentityFileName
+} from "./projectIdentity";
+import type { ProjectPersistenceAdapter } from "./projectPersistence";
+
+const projectManifestFileName = "project.json";
+
+export function createVsCodeProjectPersistenceAdapter(
+  globalStorageUri: vscode.Uri
+): ProjectPersistenceAdapter {
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+
+  return {
+    readProjectIdentity: async (root) =>
+      readTextIfExists(projectIdentityUri(root), decoder),
+    writeProjectIdentity: async (root, content) => {
+      const directory = vscode.Uri.joinPath(
+        vscode.Uri.parse(root.uri),
+        projectIdentityDirectoryName
+      );
+      await vscode.workspace.fs.createDirectory(directory);
+      await vscode.workspace.fs.writeFile(
+        vscode.Uri.joinPath(directory, projectIdentityFileName),
+        encoder.encode(content)
+      );
+    },
+    writeProjectManifest: async (projectId, content) => {
+      const directory = projectStorageDirectory(globalStorageUri, projectId);
+      await vscode.workspace.fs.createDirectory(directory);
+      await vscode.workspace.fs.writeFile(
+        vscode.Uri.joinPath(directory, projectManifestFileName),
+        encoder.encode(content)
+      );
+    }
+  };
+}
+
+function projectIdentityUri(root: WorkspaceRoot): vscode.Uri {
+  return vscode.Uri.joinPath(
+    vscode.Uri.parse(root.uri),
+    projectIdentityDirectoryName,
+    projectIdentityFileName
+  );
+}
+
+function projectStorageDirectory(globalStorageUri: vscode.Uri, projectId: string): vscode.Uri {
+  return vscode.Uri.joinPath(globalStorageUri, "projects", projectId);
+}
+
+async function readTextIfExists(
+  uri: vscode.Uri,
+  decoder: TextDecoder
+): Promise<string | undefined> {
+  try {
+    return decoder.decode(await vscode.workspace.fs.readFile(uri));
+  } catch (error) {
+    if (error instanceof vscode.FileSystemError && error.code === "FileNotFound") {
+      return undefined;
+    }
+    throw error;
+  }
+}

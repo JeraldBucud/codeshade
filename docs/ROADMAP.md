@@ -12,11 +12,11 @@ Complete. Added richer local project understanding: workspace structure, source/
 
 ## Phase 2 - Language & Framework Intelligence (`0.3.0`)
 
-Current. Add native-first active-file symbol awareness, deterministic fallback parsing and evidence-based framework signals for React, Node.js/Express, Django and Spring Boot while preserving the local-first, model-free foundation. Deeper AST, Tree-sitter or LSP-assisted analysis remains available for later refinement when it provides clear value.
+Complete. Added native-first active-file symbol awareness, bounded definition/reference relationships, deterministic fallback parsing, resolved local code relationships and evidence-based framework signals for React, Node.js/Express, Django and Spring Boot while preserving the local-first, model-free foundation. Deeper AST or Tree-sitter analysis remains deferred until it provides clear value.
 
 ## Phase 3 - Learning Engine (`0.4.0`)
 
-Build more sophisticated learning state, hint progression, concept tracking, task awareness, next-file reasoning and better explanations that still encourage learners to write and understand their own code.
+Next. Build more sophisticated learning state, hint progression, concept tracking, task awareness, next-file reasoning and better explanations that still encourage learners to write and understand their own code.
 
 ## Phase 4 - Embedded Local Intelligence (`0.5.0`)
 

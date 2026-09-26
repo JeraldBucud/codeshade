@@ -22,6 +22,7 @@ export interface ProjectPersistenceAdapter {
   readonly writeProjectManifest: (projectId: string, content: string) => Promise<void>;
   readonly readProjectCatalog: (projectId: string) => Promise<string | undefined>;
   readonly writeProjectCatalog: (projectId: string, content: string) => Promise<void>;
+  readonly deleteProjectStorage: (projectId: string) => Promise<void>;
 }
 
 export interface PersistentProjectManifest {
@@ -92,6 +93,21 @@ export class ProjectPersistenceService {
     try {
       const catalog = createProjectCatalog(state.projectId, index, this.dependencies.now);
       await this.adapter.writeProjectCatalog(state.projectId, serializeProjectCatalog(catalog));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async clearProjectData(root: WorkspaceRoot): Promise<boolean> {
+    const state = await this.ensureProject(root);
+    if (state.status !== "ready" || !state.projectId) {
+      return false;
+    }
+
+    try {
+      await this.adapter.deleteProjectStorage(state.projectId);
+      this.stateByRoot.delete(root.uri);
       return true;
     } catch {
       return false;

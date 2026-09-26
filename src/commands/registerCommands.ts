@@ -379,9 +379,7 @@ export class CodingSenseiController implements vscode.Disposable {
       return;
     }
 
-    const cleared = await this.projectService.clearPersistentData(
-      this.currentContext.activeEditor
-    );
+    const cleared = await this.projectService.clearPersistentData(this.currentContext.activeEditor);
     if (cleared) {
       void vscode.window.showInformationMessage(
         "CodingSensei stored project intelligence was cleared. It will be rebuilt when needed."

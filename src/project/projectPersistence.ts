@@ -5,6 +5,15 @@ import {
   serializeProjectCatalog,
   type PersistentProjectCatalog
 } from "./projectCatalog";
+import type { FrameworkDetection } from "../framework/models";
+import type { LanguageAnalysis, LanguageDocumentInput } from "../language/models";
+import {
+  createPersistentFileKnowledge,
+  parsePersistentFileKnowledge,
+  projectKnowledgeKey,
+  serializePersistentFileKnowledge,
+  type PersistentFileKnowledge
+} from "./projectKnowledge";
 import type { ProjectIndex } from "./projectScanner";
 import {
   createProjectIdentity,
@@ -22,6 +31,16 @@ export interface ProjectPersistenceAdapter {
   readonly writeProjectManifest: (projectId: string, content: string) => Promise<void>;
   readonly readProjectCatalog: (projectId: string) => Promise<string | undefined>;
   readonly writeProjectCatalog: (projectId: string, content: string) => Promise<void>;
+  readonly readProjectKnowledge: (
+    projectId: string,
+    knowledgeKey: string
+  ) => Promise<string | undefined>;
+  readonly writeProjectKnowledge: (
+    projectId: string,
+    knowledgeKey: string,
+    content: string
+  ) => Promise<void>;
+  readonly deleteProjectKnowledge: (projectId: string, knowledgeKey: string) => Promise<void>;
   readonly deleteProjectStorage: (projectId: string) => Promise<void>;
 }
 
@@ -93,6 +112,82 @@ export class ProjectPersistenceService {
     try {
       const catalog = createProjectCatalog(state.projectId, index, this.dependencies.now);
       await this.adapter.writeProjectCatalog(state.projectId, serializeProjectCatalog(catalog));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async saveFileKnowledge(
+    root: WorkspaceRoot,
+    document: Pick<
+      LanguageDocumentInput,
+      "projectRelativePath" | "relativePath" | "fileName" | "languageId" | "text"
+    >,
+    analysis: LanguageAnalysis,
+    frameworks: readonly FrameworkDetection[]
+  ): Promise<boolean> {
+    const state = await this.ensureProject(root);
+    if (state.status !== "ready" || !state.projectId) {
+      return false;
+    }
+
+    const relativePath =
+      document.projectRelativePath ?? document.relativePath ?? document.fileName;
+    try {
+      const knowledge = createPersistentFileKnowledge({
+        projectId: state.projectId,
+        document,
+        analysis,
+        frameworks,
+        now: this.dependencies.now
+      });
+      await this.adapter.writeProjectKnowledge(
+        state.projectId,
+        projectKnowledgeKey(relativePath),
+        serializePersistentFileKnowledge(knowledge)
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async loadFileKnowledge(
+    root: WorkspaceRoot,
+    relativePath: string
+  ): Promise<PersistentFileKnowledge | undefined> {
+    const state = await this.ensureProject(root);
+    if (state.status !== "ready" || !state.projectId) {
+      return undefined;
+    }
+
+    try {
+      const content = await this.adapter.readProjectKnowledge(
+        state.projectId,
+        projectKnowledgeKey(relativePath)
+      );
+      if (!content) {
+        return undefined;
+      }
+      const knowledge = parsePersistentFileKnowledge(content);
+      return knowledge?.projectId === state.projectId ? knowledge : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  async deleteFileKnowledge(root: WorkspaceRoot, relativePath: string): Promise<boolean> {
+    const state = await this.ensureProject(root);
+    if (state.status !== "ready" || !state.projectId) {
+      return false;
+    }
+
+    try {
+      await this.adapter.deleteProjectKnowledge(
+        state.projectId,
+        projectKnowledgeKey(relativePath)
+      );
       return true;
     } catch {
       return false;

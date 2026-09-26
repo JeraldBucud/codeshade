@@ -105,10 +105,10 @@ export class CodingSenseiController implements vscode.Disposable {
         void this.invalidateChangedProject(uri);
       }),
       projectFileWatcher.onDidCreate((uri) => {
-        void this.invalidateChangedProject(uri);
+        void this.updateChangedSourceFile(uri, "create");
       }),
       projectFileWatcher.onDidDelete((uri) => {
-        void this.invalidateChangedProject(uri);
+        void this.updateChangedSourceFile(uri, "delete");
       }),
       vscode.languages.onDidChangeDiagnostics((event) => {
         const activeDocumentUri = vscode.window.activeTextEditor?.document.uri;
@@ -292,6 +292,27 @@ export class CodingSenseiController implements vscode.Disposable {
     ) {
       this.debouncedLanguageRefresh.cancel();
       void this.refreshLanguage(true);
+    }
+  }
+
+  private async updateChangedSourceFile(
+    uri: vscode.Uri,
+    change: "create" | "delete"
+  ): Promise<void> {
+    const relativePath = vscode.workspace.asRelativePath(uri, false);
+    if (isIgnoredProjectPath(relativePath)) {
+      return;
+    }
+
+    const changedRoot = await this.projectService.updateSourceFile(uri, change);
+    const activeRoot =
+      this.projectAnalysis?.root ?? this.currentContext?.workspace.activeWorkspaceRoot;
+    const activeFile = this.currentContext?.activeEditor?.relativePath;
+    if (
+      changedRoot?.uri === activeRoot?.uri ||
+      (changedRoot && isPathInsideProject(activeFile, changedRoot))
+    ) {
+      this.refresh("fast");
     }
   }
 

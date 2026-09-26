@@ -125,6 +125,10 @@ export class ProjectIntelligenceService {
           : { status: "analyzing", root, message: "Analyzing project context locally." };
       }
 
+      if (this.persistenceService) {
+        void this.persistenceService.saveProjectCatalog(root, index);
+      }
+
       const git = options.refreshGit
         ? await this.refreshGitForRoot(root, activeFile)
         : this.gitCache.get(root.uri);

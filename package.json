@@ -20,10 +20,12 @@
     "hints",
     "programming"
   ],
+  "icon": "assets/brand/icons/codingsensei-app-icon.png",
   "main": "./dist/extension.js",
   "files": [
     "dist",
     "resources",
+    "assets/brand/icons/codingsensei-app-icon.png",
     "README.md",
     "LICENSE"
   ],

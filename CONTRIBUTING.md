@@ -1,10 +1,10 @@
-# Contributing to CodeShade
+# Contributing to CodingSensei
 
-Thanks for helping with CodeShade. The project is early and intentionally small, so contributions should keep the foundation easy to understand.
+Thanks for helping with CodingSensei. The project is early and intentionally small, so contributions should keep the foundation easy to understand.
 
 ## Principles
 
-- Keep CodeShade local-first.
+- Keep CodingSensei local-first.
 - Prefer learning guidance over code generation.
 - Keep core behavior useful without cloud APIs, accounts, telemetry or model servers.
 - Add dependencies only when they clearly pay for their weight.
@@ -27,7 +27,7 @@ pnpm format:check
 pnpm test
 ```
 
-Launch the extension from VS Code by pressing F5 and choosing `Run CodeShade Extension`.
+Launch the extension from VS Code by pressing F5 and choosing `Run CodingSensei Extension`.
 
 ## Pull Requests
 

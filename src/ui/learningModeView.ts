@@ -15,7 +15,7 @@ import type { LanguageAnalysis } from "../language/models";
 import { getLanguageDisplayName, isSupportedLanguage } from "../learning/languageProfiles";
 
 export class LearningModeViewProvider implements vscode.WebviewViewProvider {
-  static readonly viewType = "codeshade.learningMode";
+  static readonly viewType = "codingsensei.learningMode";
 
   private view: vscode.WebviewView | undefined;
   private context: LearningContext | undefined;
@@ -205,7 +205,7 @@ function renderHtml(input: {
 <body>
   <main class="stack">
     <section class="header">
-      <div class="eyebrow">CodeShade</div>
+      <div class="eyebrow">CodingSensei</div>
       <h1>Learning Mode</h1>
       <div class="status">${escapeHtml(statusLabel(context?.status))}</div>
     </section>

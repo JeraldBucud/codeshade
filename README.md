@@ -1,74 +1,190 @@
-# CodeShade
+<p align="center">
+  <img src="assets/brand/github/codingsensei-github-repository-banner.png" alt="CodingSensei — Learn to code by coding." width="100%" />
+</p>
+
+# CodingSensei
 
 **Learn to code by coding.**
 
-CodeShade is an open-source, local-first VS Code learning companion that helps you learn programming while working inside real projects.
+CodingSensei is an open-source, local-first VS Code coding companion built around a shared understanding of your real project.
 
-It is not intended to be another Copilot-style code generator. CodeShade focuses on contextual guidance, progressive hints, explanations, next-step suggestions and learning-oriented feedback that encourage you to write and understand the code yourself.
+It is designed to work in three complementary ways:
 
-## Status
+- **Assist Mode** helps you complete, fix, refactor and test code using project context.
+- **Learning Mode** teaches instead of immediately taking over, using explanations, next-step guidance and progressive hints.
+- **Project Chat** lets you ask questions about the actual codebase, architecture, tests, Git changes and where work belongs.
 
-CodeShade is in early development. Phase 0 established the extension foundation, Phase 1 added deterministic project intelligence, and Phase 2 added native-first language and framework intelligence without AI.
+All three are intended to use the same **Project Intelligence Engine**, so CodingSensei can understand the project once and reuse that understanding instead of treating every request as an isolated prompt.
 
-## Philosophy
+> CodingSensei is not intended to be just another nearby-text autocomplete tool, and it is not only a learning extension. The goal is a project-aware coding system that can help you do the work, teach you while you work, or answer questions about the project.
 
-- Help learners understand before changing code.
-- Prefer progressive hints over complete solutions.
-- Keep core functionality local-first and usable without accounts or external services.
-- Make deterministic project understanding the foundation before adding optional intelligence.
+## Current Status
+
+The current release is **v0.3.0 — Language & Framework Intelligence**.
+
+Implemented foundations include:
+
+- VS Code extension foundation and CodingSensei Activity Bar.
+- Learning Mode for the active workspace and editor.
+- Current workspace, file, selection and diagnostics context.
+- Cached deterministic project intelligence.
+- Nested-project discovery and project-root resolution.
+- JavaScript/TypeScript, Python and Java ecosystem foundations.
+- Package/build-tool and project metadata awareness.
+- Source/test relationship suggestions.
+- Optional local Git branch/change-state awareness.
+- Native-first symbol, definition and reference analysis using VS Code providers when available.
+- Deterministic fallback parsing for supported code-structure signals.
+- Evidence-based React, Express, Django and Spring Boot detection.
+- Deterministic next-step suggestions and progressive hints.
+- Local-first behavior with no telemetry, cloud API, account or required model server.
+
+The broader **V1 scope below is the product target, not a claim that every item is already implemented**.
+
+## V1 Product Scope
+
+### Assist Mode
+
+Project-aware coding assistance that uses actual repository structure and conventions rather than relying mainly on nearby text.
+
+Planned V1 capabilities include project-aware autocomplete, multi-line/function completion, TODO completion, import suggestions, error fixes, refactoring suggestions, test generation and project-aware next-step suggestions.
+
+### Learning Mode
+
+Learning Mode uses the same project understanding as Assist Mode but changes the behavior from “complete this for me” to “help me understand and do it.”
+
+Planned V1 behavior includes explanations, next-step guidance, progressive hints, stronger hints when needed, pseudocode before full solutions, “Why?” explanations, suggestions for which file/function to inspect next, and architecture-aware guidance when the current work is inconsistent with the project.
+
+### Project Chat
+
+A project-specific chat grounded in the current codebase.
+
+It is intended to answer questions such as:
+
+- Where is this handled?
+- How does this feature work?
+- Why is this failing?
+- Where should a new feature belong?
+- What tests cover this?
+- What changed in Git?
+- How does this part of the architecture fit together?
+
+Chat can behave in an **Assist** style when the user wants proposed changes, or a **Learning** style when the user wants guidance rather than the answer immediately.
+
+Planned scopes include **Current Project**, **Current File**, **Current Selection**, **Git Changes**, and relevant current-function/cursor context.
+
+### Shared Project Intelligence Engine
+
+The Project Intelligence Engine is the common foundation beneath Assist Mode, Learning Mode and Project Chat.
+
+V1 is intended to build and maintain knowledge about:
+
+- files and project structure
+- syntax/AST or equivalent structural analysis
+- symbols, functions, classes, types and interfaces
+- imports, references and call relationships
+- dependency and test relationships
+- project architecture patterns and feature clusters
+- Git state, TODOs and compiler/LSP diagnostics
+- relevant-file retrieval
+- semantic search where meaning matters
+- structural search where exact relationships are more reliable
+
+### Persistent Project Knowledge
+
+CodingSensei is designed to remember what it has already learned about a project instead of fully relearning the repository on every restart.
+
+The V1 target includes persistent local project knowledge, incremental updates for changed files, survival across VS Code restarts/PC reboots/model unloads, and a stable local project identity that can continue to recognize a project after a folder rename or move where possible.
+
+A small `.codingsensei` metadata folder can hold the stable project identity while large indexes remain outside the repository in CodingSensei local storage.
+
+### Background Intelligence and Incremental Indexing
+
+The intelligence engine is intended to update project knowledge in the background without competing with active typing.
+
+The V1 design includes:
+
+- initial full indexing followed by changed-file updates
+- file hash/Git/mtime-style change detection
+- idle-time relationship and architecture analysis
+- pre-computation of likely relevant context
+- throttling or pausing background work when the user becomes active
+- controls to view, rebuild, clear or remove stored project intelligence
+
+### Deterministic + LLM Hybrid
+
+CodingSensei should not use an LLM for tasks that deterministic tooling can answer exactly.
+
+Deterministic project intelligence should handle definitions, references, imports, test relationships, dependency relationships, Git changes, diagnostics and file lookup. The LLM is reserved for work that benefits from reasoning: explanations, teaching, code generation, debugging reasoning, refactoring decisions and architectural reasoning.
+
+The project intelligence remains available even when the model is unloaded. The V1 design can allow the LLM to sleep after inactivity and release VRAM, with resource profiles such as **Eco**, **Balanced** and **Performance** considered for later implementation.
+
+## Architecture Direction
+
+```mermaid
+flowchart TD
+    A[CodingSensei] --> B[Project Intelligence Engine]
+    B --> C[Assist Mode]
+    B --> D[Learning Mode]
+    B --> E[Project Chat]
+    C --> F[LLM only when needed]
+    D --> F
+    E --> F
+    F --> G[Persistent local project knowledge]
+    B --> G
+```
+
+The core idea is simple: **understand the project once, reuse that understanding everywhere, and invoke the LLM only when reasoning or generation is actually useful.**
+
+## Evidence-Aware Answers
+
+Project Chat and other reasoning features should prefer verifiable project evidence over unsupported conversational claims.
+
+The target experience is to show real file references, ideally with file + line locations that can be clicked to open the relevant place in VS Code.
+
+Live context can include the current file, cursor/function, selected code, recent edits, diagnostics, recent Git changes, related tests, nearby symbols and relevant project relationships.
+
+## Post-V1
+
+Already planned but intentionally outside the first release scope:
+
+- **Guided Project Mode** — curated projects with requirements, designs, architecture, milestones, acceptance criteria, tests and progressive guidance.
+- **Challenge Mode** — focused programming, debugging, refactoring and testing exercises with progressive hints.
+- **Learning Profile / Skill Progression** — track demonstrated concepts, identify weak areas, recommend future work and personalize guidance difficulty.
+
+See [docs/ROADMAP.md](docs/ROADMAP.md) for the detailed roadmap.
 
 ## Local-First Privacy
 
-CodeShade does not include telemetry, analytics, cloud APIs, authentication, API keys, model downloads or hidden background communication. Code and project context stay inside VS Code.
+CodingSensei currently does not include telemetry, analytics, cloud APIs, authentication, API keys, model downloads or hidden background communication. Code and project context stay inside VS Code.
 
 Future optional intelligence providers must not become required for the core extension to work.
 
-## Initial Features
-
-- CodeShade Activity Bar container.
-- Learning Mode view for the active workspace and editor.
-- Current project, file and language context.
-- Selection summary when code is selected.
-- Active-file diagnostics surfaced as learning context.
-- Cached local project intelligence for the resolved active project root.
-- Ecosystem, package/build tool, script and source/test structure signals.
-- Related source/test file suggestions when conventions are clear.
-- Optional local Git branch/change-state awareness.
-- Native-first code-structure awareness using VS Code symbols, definitions and references when available, with deterministic fallback parsing.
-- Evidence-based framework signals for React, Express, Django and Spring Boot using active-file evidence plus bounded project metadata summaries.
-- Deterministic next-step suggestions.
-- Progressive hints that avoid giving away complete answers.
-- Command Palette actions for opening Learning Mode, refreshing context and stepping through hints.
-
 ## Supported Language Foundations
 
-Phase 0 includes lightweight detection profiles for:
+The current foundations cover:
 
 - JavaScript
 - TypeScript
 - Python
 - Java
 
-Phase 1 detects ecosystems and build/package tools. Phase 2 adds native-first symbol, definition and reference awareness plus deterministic framework signals for common React, Express, Django and Spring Boot patterns. CodeShade still does not perform full AST analysis, add Tree-sitter or require external language servers.
+Phase 2 adds native-first symbol, definition and reference awareness plus deterministic framework signals for common React, Express, Django and Spring Boot patterns. Deeper AST/Tree-sitter analysis remains a future implementation choice where it provides clear value.
 
-## Project Intelligence
+## Project Intelligence Today
 
-CodeShade starts from the VS Code workspace folder that contains the active file, then resolves the active software project by walking upward from that file to the workspace boundary and looking for strong project markers such as `package.json`, `pyproject.toml`, `pom.xml` or `build.gradle`. The nearest strong marker wins, so nested projects such as `workspace/frontend` or `workspace/EBusinessSystem` are treated as the active project instead of the outer workspace folder.
+CodingSensei starts from the VS Code workspace folder containing the active file and resolves the active software project by walking upward to strong project markers such as `package.json`, `pyproject.toml`, `pom.xml` or `build.gradle`. The nearest strong marker wins, so nested projects can be understood independently.
 
-Project discovery is location-agnostic. It does not depend on whether the workspace lives on Desktop, OneDrive, another drive or a Unix home directory. It also stays inside the folder the user opened in VS Code; CodeShade does not scan the whole computer, mounted drives or unrelated home folders.
+Project analysis keeps a structural index cached per resolved project root. Fast editor events reuse cached project data rather than rescanning the project or refreshing Git. Relevant file changes invalidate the affected project context.
 
-Project analysis keeps a structural index cached per resolved project root. Cursor movement, selection changes, diagnostics and ordinary text edits refresh the fast editor context and derive active-file relationships from the cached index without rescanning the project or refreshing Git. Manual refresh and relevant source/metadata file changes invalidate the affected project root. In multi-root workspaces, changes outside the active project do not force the active Learning Mode view to rescan.
-
-CodeShade discovers critical metadata files separately from the bounded source-file scan, so lock files and build wrappers such as `yarn.lock`, `gradlew` and `mvnw` can still be detected when source scanning is truncated. Local Git state is refreshed independently from structural project scanning, and the Git repository root may be above the active project root. CodeShade does not run package scripts, tests, builds, hooks or project code.
+CodingSensei discovers critical metadata separately from the bounded source scan and does not automatically run package scripts, tests, builds, hooks or project code.
 
 ## Development Setup
 
 Prerequisites:
 
-- Node.js 22.21.0, matching [.node-version](.node-version). pnpm 11.19.0 requires Node.js 22.13 or newer.
+- Node.js 22.21.0, matching [.node-version](.node-version).
 - pnpm 11.19.0, matching the `packageManager` field in [package.json](package.json).
-
-These versions are for development and CI tooling. The extension runtime compatibility is declared separately through the VS Code engine in [package.json](package.json).
 
 Install dependencies:
 
@@ -76,46 +192,31 @@ Install dependencies:
 pnpm install
 ```
 
-Build the extension:
+Run the complete validation suite:
 
 ```bash
-pnpm build
+pnpm check
 ```
 
-Run tests:
-
-```bash
-pnpm test
-```
-
-Run linting and formatting checks:
-
-```bash
-pnpm lint
-pnpm format:check
-```
-
-## Launching the Extension
-
-Open this repository in VS Code, press F5 and choose `Run CodeShade Extension`. This starts an Extension Development Host with CodeShade installed from the local workspace.
+Launch the extension by opening the repository in VS Code, pressing **F5**, and choosing `Run CodingSensei Extension`.
 
 ## Commands
 
-- `CodeShade: Open Learning Mode`
-- `CodeShade: Refresh Learning Context`
-- `CodeShade: Show Next Hint`
-- `CodeShade: Reset Hints`
+- `CodingSensei: Open Learning Mode`
+- `CodingSensei: Refresh Learning Context`
+- `CodingSensei: Show Next Hint`
+- `CodingSensei: Reset Hints`
 
 ## Versioning and Releases
 
-CodeShade follows Semantic Versioning. The current release is `0.3.0`, representing Phase 2 - Language & Framework Intelligence.
+CodingSensei follows Semantic Versioning. The current release is `0.3.0`, representing Phase 2 — Language & Framework Intelligence.
 
 See [CHANGELOG.md](CHANGELOG.md) for milestone history and [docs/RELEASING.md](docs/RELEASING.md) for the release process.
 
 ## Project Status
 
-This project is not published to the VS Code Marketplace. The `publisher` value in `package.json` is a conservative placeholder for local extension development and packaging metadata.
+CodingSensei is still under active development and is not yet published to the VS Code Marketplace.
 
 ## License
 
-CodeShade is licensed under the Apache License 2.0. See [LICENSE](LICENSE).
+CodingSensei is licensed under the Apache License 2.0. See [LICENSE](LICENSE).

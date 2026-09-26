@@ -1,11 +1,11 @@
 {
-  "name": "codeshade",
-  "displayName": "CodeShade",
+  "name": "codingsensei",
+  "displayName": "CodingSensei",
   "description": "A local-first VS Code learning companion that helps you learn to code by coding.",
   "version": "0.3.0",
   "private": true,
   "license": "Apache-2.0",
-  "publisher": "codeshade-local",
+  "publisher": "codingsensei-local",
   "engines": {
     "vscode": "^1.92.0"
   },
@@ -20,59 +20,61 @@
     "hints",
     "programming"
   ],
+  "icon": "assets/brand/icons/codingsensei-app-icon.png",
   "main": "./dist/extension.js",
   "files": [
     "dist",
     "resources",
+    "assets/brand/icons/codingsensei-app-icon.png",
     "README.md",
     "LICENSE"
   ],
   "activationEvents": [
-    "onView:codeshade.learningMode",
-    "onCommand:codeshade.openLearningMode",
-    "onCommand:codeshade.refreshLearningContext",
-    "onCommand:codeshade.showNextHint",
-    "onCommand:codeshade.resetHints"
+    "onView:codingsensei.learningMode",
+    "onCommand:codingsensei.openLearningMode",
+    "onCommand:codingsensei.refreshLearningContext",
+    "onCommand:codingsensei.showNextHint",
+    "onCommand:codingsensei.resetHints"
   ],
   "contributes": {
     "commands": [
       {
-        "command": "codeshade.openLearningMode",
-        "title": "CodeShade: Open Learning Mode",
-        "category": "CodeShade"
+        "command": "codingsensei.openLearningMode",
+        "title": "CodingSensei: Open Learning Mode",
+        "category": "CodingSensei"
       },
       {
-        "command": "codeshade.refreshLearningContext",
-        "title": "CodeShade: Refresh Learning Context",
-        "category": "CodeShade",
+        "command": "codingsensei.refreshLearningContext",
+        "title": "CodingSensei: Refresh Learning Context",
+        "category": "CodingSensei",
         "icon": "$(refresh)"
       },
       {
-        "command": "codeshade.showNextHint",
-        "title": "CodeShade: Show Next Hint",
-        "category": "CodeShade",
+        "command": "codingsensei.showNextHint",
+        "title": "CodingSensei: Show Next Hint",
+        "category": "CodingSensei",
         "icon": "$(lightbulb)"
       },
       {
-        "command": "codeshade.resetHints",
-        "title": "CodeShade: Reset Hints",
-        "category": "CodeShade",
+        "command": "codingsensei.resetHints",
+        "title": "CodingSensei: Reset Hints",
+        "category": "CodingSensei",
         "icon": "$(discard)"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "codeshade",
-          "title": "CodeShade",
-          "icon": "resources/codeshade.svg"
+          "id": "codingsensei",
+          "title": "CodingSensei",
+          "icon": "resources/codingsensei.svg"
         }
       ]
     },
     "views": {
-      "codeshade": [
+      "codingsensei": [
         {
-          "id": "codeshade.learningMode",
+          "id": "codingsensei.learningMode",
           "name": "Learning Mode",
           "type": "webview"
         }
@@ -81,18 +83,18 @@
     "menus": {
       "view/title": [
         {
-          "command": "codeshade.refreshLearningContext",
-          "when": "view == codeshade.learningMode",
+          "command": "codingsensei.refreshLearningContext",
+          "when": "view == codingsensei.learningMode",
           "group": "navigation@1"
         },
         {
-          "command": "codeshade.showNextHint",
-          "when": "view == codeshade.learningMode",
+          "command": "codingsensei.showNextHint",
+          "when": "view == codingsensei.learningMode",
           "group": "navigation@2"
         },
         {
-          "command": "codeshade.resetHints",
-          "when": "view == codeshade.learningMode",
+          "command": "codingsensei.resetHints",
+          "when": "view == codingsensei.learningMode",
           "group": "secondary@1"
         }
       ]

@@ -1,8 +1,14 @@
 # Changelog
 
-Notable CodeShade changes are recorded here. CodeShade follows Semantic Versioning.
+Notable CodingSensei changes are recorded here. CodingSensei follows Semantic Versioning.
 
 ## [Unreleased]
+
+### Branding
+
+- Renamed the project from CodeShade to CodingSensei before VS Code Marketplace publication.
+- Updated the extension package name, command/view identifiers, local publisher placeholder, documentation, UI copy and development launch labels to the CodingSensei identity.
+- Added a dedicated brand-asset structure for GitHub, documentation, VS Code and social creatives.
 
 Future changes will be recorded here.
 

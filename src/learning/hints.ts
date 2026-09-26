@@ -68,7 +68,8 @@ export class ProgressiveHintEngine {
           id: "open-file-inspect",
           level: "inspect",
           title: "Open a file to begin",
-          message: "Choose a source file so CodeShade can describe the immediate learning context."
+          message:
+            "Choose a source file so CodingSensei can describe the immediate learning context."
         }
       ];
     }

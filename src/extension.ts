@@ -1,6 +1,6 @@
 import type * as vscode from "vscode";
 
-import { CodeShadeController } from "./commands/registerCommands";
+import { CodingSenseiController } from "./commands/registerCommands";
 import { WorkspaceContextService } from "./context/workspaceContext";
 import { ProgressiveHintEngine } from "./learning/hints";
 import { NextStepService } from "./learning/nextSteps";
@@ -8,7 +8,7 @@ import { ProjectIntelligenceService } from "./project/projectIntelligence";
 import { LearningModeViewProvider } from "./ui/learningModeView";
 
 export function activate(context: vscode.ExtensionContext): void {
-  const controller = new CodeShadeController(
+  const controller = new CodingSenseiController(
     new WorkspaceContextService(),
     new ProjectIntelligenceService(),
     new ProgressiveHintEngine(),

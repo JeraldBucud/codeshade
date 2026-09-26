@@ -145,6 +145,23 @@ export class ProjectIntelligenceService {
     }
   }
 
+  async clearPersistentData(activeEditor: ActiveEditorContext | undefined): Promise<boolean> {
+    if (!this.persistenceService) {
+      return false;
+    }
+
+    const resolution = await this.adapter.resolveProjectRoot(activeEditor);
+    if (!resolution) {
+      return false;
+    }
+
+    const cleared = await this.persistenceService.clearProjectData(resolution.projectRoot);
+    if (cleared) {
+      this.persistenceState.delete(resolution.projectRoot.uri);
+    }
+    return cleared;
+  }
+
   async refreshGit(activeEditor: ActiveEditorContext | undefined): Promise<ProjectAnalysis> {
     const resolution = await this.adapter.resolveProjectRoot(activeEditor);
     if (!resolution) {

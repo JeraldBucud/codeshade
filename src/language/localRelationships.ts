@@ -35,7 +35,7 @@ export function resolveLocalRelationships(
       ...relationship,
       targetFile,
       confidence: "high",
-      reason: `${relationship.reason} CodeShade resolved it to a known local project file.`
+      reason: `${relationship.reason} CodingSensei resolved it to a known local project file.`
     });
   }
 

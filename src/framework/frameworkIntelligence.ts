@@ -18,11 +18,18 @@ function detectReact(input: FrameworkInput): FrameworkDetection | undefined {
   const evidence: FrameworkEvidence[] = [];
   const roles: FrameworkRole[] = [];
   const hasReactDependency = hasPackage(input, "react") || hasPackage(input, "react-dom");
+  const hasReactImport = /from\s+["']react["']|require\(["']react["']\)/.test(input.text);
+  const hasJsxSyntax =
+    /\.(tsx|jsx)$/i.test(input.fileName) && /<[A-Za-z][\w.-]*(\s|>|\/)/.test(input.text);
+  const hasComponentJsx = /<[A-Z][A-Za-z0-9_]*/.test(input.text);
   if (hasReactDependency) evidence.push({ source: "metadata", description: "React dependency" });
-  if (/from\s+["']react["']|require\(["']react["']\)/.test(input.text))
-    evidence.push({ source: "text", description: "imports React" });
-  if (/\.(tsx|jsx)$/i.test(input.fileName) && /<[A-Z][A-Za-z0-9_]*/.test(input.text))
-    evidence.push({ source: "text", description: "contains JSX component usage" });
+  if (hasReactImport) evidence.push({ source: "text", description: "imports React" });
+  if (hasJsxSyntax && (hasReactDependency || hasReactImport || hasComponentJsx)) {
+    evidence.push({
+      source: "text",
+      description: hasComponentJsx ? "contains JSX component usage" : "contains JSX syntax"
+    });
+  }
   if (/\buse[A-Z][A-Za-z0-9_]*\s*\(/.test(input.text)) roles.push("hook");
   if (/function\s+[A-Z][A-Za-z0-9_]*|const\s+[A-Z][A-Za-z0-9_]*\s*=/.test(input.text))
     roles.push("component");

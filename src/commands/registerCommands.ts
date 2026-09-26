@@ -5,6 +5,10 @@ import type { FrameworkDetection } from "../framework/models";
 import { detectFrameworks } from "../framework/frameworkIntelligence";
 import type { LanguageAnalysis, LanguageDocumentInput } from "../language/models";
 import { LanguageIntelligenceService } from "../language/languageIntelligence";
+import {
+  createLanguageProjectContextKey,
+  shouldReconcileLanguageProject
+} from "../language/projectContextKey";
 import { VsCodeLanguageAdapter } from "../language/vscodeLanguageAdapter";
 import type { WorkspaceContextService } from "../context/workspaceContext";
 import type { ProgressiveHintEngine } from "../learning/hints";
@@ -26,6 +30,7 @@ export class CodeShadeController implements vscode.Disposable {
   private projectAnalysis: ProjectAnalysis | undefined;
   private languageAnalysis: LanguageAnalysis | undefined;
   private frameworkDetections: readonly FrameworkDetection[] = [];
+  private languageProjectContextKey: string | undefined;
   private readonly languageService = new LanguageIntelligenceService(new VsCodeLanguageAdapter());
   private readonly debouncedLanguageRefresh = new DebouncedAction(
     CodeShadeController.languageDebounceMs,
@@ -199,6 +204,7 @@ export class CodeShadeController implements vscode.Disposable {
       this.frameworkDetections
     );
     this.publish();
+    this.reconcileLanguageAfterProjectReady(contextAtStart);
   }
 
   private async refreshGit(): Promise<void> {
@@ -242,6 +248,10 @@ export class CodeShadeController implements vscode.Disposable {
 
     this.languageAnalysis = analysis;
     this.frameworkDetections = this.collectFrameworkDetections(document, analysis);
+    this.languageProjectContextKey = createLanguageProjectContextKey({
+      document,
+      snapshot: this.projectAnalysis?.snapshot
+    });
     this.nextStep = this.nextStepService.choose(
       this.currentContext,
       this.projectAnalysis,
@@ -253,6 +263,31 @@ export class CodeShadeController implements vscode.Disposable {
 
   private scheduleLanguageRefresh(): void {
     this.debouncedLanguageRefresh.schedule();
+  }
+
+  private reconcileLanguageAfterProjectReady(contextAtStart: LearningContext): void {
+    if (
+      this.currentContext !== contextAtStart ||
+      this.projectAnalysis?.status !== "ready" ||
+      !this.projectAnalysis.snapshot
+    ) {
+      return;
+    }
+
+    const document = this.collectLanguageDocument();
+    const nextKey = createLanguageProjectContextKey({
+      document,
+      snapshot: this.projectAnalysis.snapshot
+    });
+    if (
+      shouldReconcileLanguageProject({
+        previousKey: this.languageProjectContextKey,
+        nextKey
+      })
+    ) {
+      this.debouncedLanguageRefresh.cancel();
+      void this.refreshLanguage(true);
+    }
   }
 
   private async invalidateChangedProject(uri: vscode.Uri): Promise<void> {

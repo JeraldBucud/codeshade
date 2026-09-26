@@ -32,6 +32,18 @@ describe("framework intelligence", () => {
     expect(detections[0]).toMatchObject({ framework: "react", confidence: "high" });
   });
 
+  it("detects React metadata with lowercase DOM JSX", () => {
+    const detections = detectFrameworks({
+      fileName: "Button.tsx",
+      relativePath: "src/Button.tsx",
+      languageId: "typescriptreact",
+      text: "export function Button() { return <button>Save</button>; }",
+      metadataPackageNames: ["react"]
+    });
+
+    expect(detections[0]).toMatchObject({ framework: "react", confidence: "high" });
+  });
+
   it("does not overclaim React from TSX syntax alone", () => {
     expect(
       names({
@@ -41,6 +53,28 @@ describe("framework intelligence", () => {
         text: "export const Icon = () => <svg />;"
       })
     ).not.toContain("react");
+  });
+
+  it("does not overclaim lowercase DOM JSX without React metadata or import", () => {
+    expect(
+      names({
+        fileName: "Button.tsx",
+        relativePath: "src/Button.tsx",
+        languageId: "typescriptreact",
+        text: "export function Button() { return <button>Save</button>; }"
+      })
+    ).not.toContain("react");
+  });
+
+  it("detects explicit React import with lowercase JSX", () => {
+    const detections = detectFrameworks({
+      fileName: "Button.tsx",
+      relativePath: "src/Button.tsx",
+      languageId: "typescriptreact",
+      text: "import React from 'react';\nexport function Button() { return <button>Save</button>; }"
+    });
+
+    expect(detections[0]).toMatchObject({ framework: "react", confidence: "high" });
   });
 
   it("detects Express routers and route handlers", () => {

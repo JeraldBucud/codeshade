@@ -1,7 +1,7 @@
 import type { IntelligenceProvider } from "../core/models";
 
 export const deterministicProvider: IntelligenceProvider = {
-  id: "codeshade.deterministic",
+  id: "codingsensei.deterministic",
   mode: "deterministic",
   required: false
 };

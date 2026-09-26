@@ -1,15 +1,29 @@
 import type { LearningContext, NextStep, ProjectAnalysis } from "../core/models";
+import type { FrameworkDetection } from "../framework/models";
+import type { LanguageAnalysis } from "../language/models";
 import { choosePrimaryDiagnostic } from "./diagnostics";
 
 export class NextStepService {
-  choose(context: LearningContext, projectAnalysis?: ProjectAnalysis): NextStep {
-    const candidates = this.collectCandidates(context, projectAnalysis);
+  choose(
+    context: LearningContext,
+    projectAnalysis?: ProjectAnalysis,
+    languageAnalysis?: LanguageAnalysis,
+    frameworkDetections: readonly FrameworkDetection[] = []
+  ): NextStep {
+    const candidates = this.collectCandidates(
+      context,
+      projectAnalysis,
+      languageAnalysis,
+      frameworkDetections
+    );
     return [...candidates].sort((a, b) => b.priority - a.priority)[0] ?? defaultNextStep;
   }
 
   collectCandidates(
     context: LearningContext,
-    projectAnalysis?: ProjectAnalysis
+    projectAnalysis?: ProjectAnalysis,
+    languageAnalysis?: LanguageAnalysis,
+    frameworkDetections: readonly FrameworkDetection[] = []
   ): readonly NextStep[] {
     const steps: NextStep[] = [];
 
@@ -76,6 +90,7 @@ export class NextStepService {
 
     const projectSteps = collectProjectSteps(projectAnalysis);
     steps.push(...projectSteps);
+    steps.push(...collectLanguageSteps(languageAnalysis, frameworkDetections));
 
     if (!context.project.activeFileIsTest) {
       steps.push({
@@ -102,6 +117,87 @@ export class NextStepService {
     });
 
     return steps;
+  }
+}
+
+function collectLanguageSteps(
+  languageAnalysis: LanguageAnalysis | undefined,
+  frameworkDetections: readonly FrameworkDetection[]
+): readonly NextStep[] {
+  const steps: NextStep[] = [];
+  const firstRelationship = languageAnalysis?.relationships[0];
+  const currentSymbol = languageAnalysis?.currentSymbol;
+  const firstFramework = frameworkDetections[0];
+
+  if (firstRelationship) {
+    steps.push({
+      id: `inspect-${firstRelationship.type}`,
+      title: relationshipTitle(firstRelationship.type),
+      detail: `${firstRelationship.target}: ${firstRelationship.reason}`,
+      priority: 58
+    });
+  }
+
+  if (firstFramework) {
+    steps.push({
+      id: `inspect-${firstFramework.framework}`,
+      title: frameworkTitle(firstFramework),
+      detail: `${formatFramework(firstFramework.framework)} evidence: ${firstFramework.evidence
+        .map((evidence) => evidence.description)
+        .slice(0, 2)
+        .join("; ")}.`,
+      priority: 52
+    });
+  }
+
+  if (currentSymbol) {
+    steps.push({
+      id: "explain-current-symbol",
+      title: "Explain the current symbol",
+      detail: `You are inside ${currentSymbol.kind} "${currentSymbol.name}". Describe its responsibility before changing it.`,
+      priority: 48
+    });
+  }
+
+  return steps;
+}
+
+function relationshipTitle(
+  type: NonNullable<LanguageAnalysis["relationships"][number]>["type"]
+): string {
+  switch (type) {
+    case "renders":
+      return "Inspect the rendered component";
+    case "route-handler":
+      return "Trace the route handler";
+    case "service-dependency":
+      return "Inspect the service dependency";
+    case "import":
+      return "Inspect an imported module";
+    case "definition":
+      return "Inspect the definition";
+    case "reference":
+      return "Trace the reference";
+    case "contains":
+      return "Inspect the contained symbol";
+  }
+}
+
+function frameworkTitle(detection: FrameworkDetection): string {
+  const roles = detection.roles.length > 0 ? ` ${detection.roles.join(", ")}` : "";
+  return `Inspect the ${formatFramework(detection.framework)}${roles}`;
+}
+
+function formatFramework(framework: FrameworkDetection["framework"]): string {
+  switch (framework) {
+    case "react":
+      return "React";
+    case "express":
+      return "Express";
+    case "django":
+      return "Django";
+    case "spring-boot":
+      return "Spring Boot";
   }
 }
 

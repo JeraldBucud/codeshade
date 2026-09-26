@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { LearningContext, ProjectAnalysis } from "../src/core/models";
+import type { FrameworkDetection } from "../src/framework/models";
+import type { LanguageAnalysis } from "../src/language/models";
 import { NextStepService } from "../src/learning/nextSteps";
 
 const workspace = {
@@ -49,6 +51,49 @@ const readyProject: ProjectAnalysis = {
       activeFileStatus: "modified"
     }
   }
+};
+
+const languageAnalysis: LanguageAnalysis = {
+  status: "available",
+  file: "src/app.tsx",
+  languageId: "typescriptreact",
+  source: "vscode-provider",
+  symbols: [
+    {
+      name: "App",
+      kind: "function",
+      range: { startLine: 0, startCharacter: 0, endLine: 5, endCharacter: 0 },
+      selectionRange: { startLine: 1, startCharacter: 9, endLine: 1, endCharacter: 12 }
+    }
+  ],
+  currentSymbol: {
+    name: "App",
+    kind: "function",
+    range: { startLine: 0, startCharacter: 0, endLine: 5, endCharacter: 0 },
+    selectionRange: { startLine: 1, startCharacter: 9, endLine: 1, endCharacter: 12 }
+  },
+  imports: [],
+  relationships: [
+    {
+      type: "renders",
+      target: "Header",
+      symbol: "Header",
+      confidence: "medium",
+      reason: "A JSX element with a component-style name appears in the active file."
+    }
+  ],
+  entryPointSignals: [],
+  truncated: false
+};
+
+const reactDetection: FrameworkDetection = {
+  framework: "react",
+  confidence: "high",
+  evidence: [
+    { source: "text", description: "imports React" },
+    { source: "text", description: "contains JSX component usage" }
+  ],
+  roles: ["component"]
 };
 
 describe("next step service", () => {
@@ -240,5 +285,91 @@ describe("next step service", () => {
     );
 
     expect(step.id).toBe("investigate-first-diagnostic");
+  });
+
+  it("uses language relationships when higher priority editor signals are absent", () => {
+    const service = new NextStepService();
+    const step = service.choose(
+      {
+        status: "ready",
+        workspace,
+        project: { activeFileIsTest: false },
+        activeEditor: {
+          fileName: "app.tsx",
+          relativePath: "src/app.tsx",
+          languageId: "typescriptreact",
+          isUntitled: false,
+          isDirty: false,
+          lineCount: 5,
+          diagnostics: [],
+          todoMarkers: []
+        }
+      },
+      undefined,
+      languageAnalysis,
+      [reactDetection]
+    );
+
+    expect(step.id).toBe("inspect-renders");
+    expect(step.detail).toContain("Header");
+  });
+
+  it("keeps active diagnostics above framework and language guidance", () => {
+    const service = new NextStepService();
+    const step = service.choose(
+      {
+        status: "ready",
+        workspace,
+        project: { activeFileIsTest: false },
+        activeEditor: {
+          fileName: "app.tsx",
+          relativePath: "src/app.tsx",
+          languageId: "typescriptreact",
+          isUntitled: false,
+          isDirty: false,
+          lineCount: 5,
+          diagnostics: [
+            {
+              message: "Cannot find name Header.",
+              severity: "error",
+              range: { startLine: 2, startCharacter: 10, endLine: 2, endCharacter: 16 }
+            }
+          ],
+          todoMarkers: []
+        }
+      },
+      undefined,
+      languageAnalysis,
+      [reactDetection]
+    );
+
+    expect(step.id).toBe("investigate-first-diagnostic");
+  });
+
+  it("suggests framework evidence when there is no stronger relationship", () => {
+    const service = new NextStepService();
+    const step = service.choose(
+      {
+        status: "ready",
+        workspace,
+        project: { activeFileIsTest: false },
+        activeEditor: {
+          fileName: "app.tsx",
+          relativePath: "src/app.tsx",
+          languageId: "typescriptreact",
+          isUntitled: false,
+          isDirty: false,
+          lineCount: 5,
+          diagnostics: [],
+          todoMarkers: []
+        }
+      },
+      undefined,
+      { ...languageAnalysis, relationships: [] },
+      [reactDetection]
+    );
+
+    expect(step.id).toBe("inspect-react");
+    expect(step.detail).toContain("imports React");
   });
 });

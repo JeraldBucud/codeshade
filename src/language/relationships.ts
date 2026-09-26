@@ -1,0 +1,129 @@
+import type { CodeRange } from "../core/models";
+import type { LanguageRelationship, LanguageSymbol } from "./models";
+
+export function analyzeDeterministicStructure(input: {
+  readonly text: string;
+  readonly languageId: string;
+  readonly fileName: string;
+}): {
+  readonly symbols: readonly LanguageSymbol[];
+  readonly imports: readonly LanguageRelationship[];
+  readonly relationships: readonly LanguageRelationship[];
+  readonly entryPointSignals: readonly string[];
+} {
+  const lines = input.text.split(/\r?\n/);
+  const symbols: LanguageSymbol[] = [];
+  const imports: LanguageRelationship[] = [];
+  const relationships: LanguageRelationship[] = [];
+  const entryPointSignals: string[] = [];
+
+  lines.forEach((line, index) => {
+    collectImports(line, imports);
+    collectSymbols(line, index, symbols);
+    collectRelationships(line, relationships);
+    if (/if\s*\(?(?:__name__\s*==\s*["']__main__["']|require\.main\s*===\s*module)\)?/.test(line)) {
+      entryPointSignals.push("possible main/module entry point");
+    }
+    if (/public\s+static\s+void\s+main\s*\(/.test(line)) {
+      entryPointSignals.push("Java main method");
+    }
+  });
+
+  return { symbols, imports, relationships, entryPointSignals };
+}
+
+function collectImports(line: string, imports: LanguageRelationship[]): void {
+  const patterns = [
+    /import\s+.*?from\s+["']([^"']+)["']/,
+    /import\s+["']([^"']+)["']/,
+    /require\s*\(\s*["']([^"']+)["']\s*\)/,
+    /from\s+([\w.]+)\s+import\s+(.+)/,
+    /import\s+([\w.]+)/,
+    /import\s+([\w.*]+);/
+  ];
+  for (const pattern of patterns) {
+    const match = pattern.exec(line);
+    if (match?.[1]) {
+      const target = match[1];
+      imports.push({
+        type: "import",
+        target,
+        targetFile: isLocalImport(target) ? target : undefined,
+        confidence: isLocalImport(target) ? "high" : "medium",
+        reason: isLocalImport(target)
+          ? "The active file imports a local project module."
+          : "The active file imports an external module or package."
+      });
+      return;
+    }
+  }
+}
+
+function collectSymbols(line: string, index: number, symbols: LanguageSymbol[]): void {
+  const checks: Array<[RegExp, LanguageSymbol["kind"]]> = [
+    [/\bclass\s+([A-Za-z_$][\w$]*)/, "class"],
+    [/\binterface\s+([A-Za-z_$][\w$]*)/, "interface"],
+    [/\bfunction\s+([A-Za-z_$][\w$]*)\s*\(/, "function"],
+    [/\bdef\s+([A-Za-z_][\w]*)\s*\(/, "function"],
+    [
+      /\b(?:public|private|protected)?\s*(?:static\s+)?[A-Za-z_$][\w$<>[\]]*\s+([A-Za-z_$][\w$]*)\s*\(/,
+      "method"
+    ],
+    [/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\(?[^=]*\)?\s*=>/, "function"]
+  ];
+  for (const [pattern, kind] of checks) {
+    const match = pattern.exec(line);
+    if (match?.[1]) {
+      symbols.push({
+        name: match[1],
+        kind,
+        range: lineRange(index, line),
+        selectionRange: lineRange(index, line)
+      });
+      return;
+    }
+  }
+}
+
+function collectRelationships(line: string, relationships: LanguageRelationship[]): void {
+  const renderMatch = /<([A-Z][A-Za-z0-9_]*)\b/.exec(line);
+  if (renderMatch?.[1]) {
+    relationships.push({
+      type: "renders",
+      target: renderMatch[1],
+      symbol: renderMatch[1],
+      confidence: "medium",
+      reason: "A JSX element with a component-style name appears in the active file."
+    });
+  }
+  const serviceMatch =
+    /(?:private|public|protected)?\s+(?:final\s+)?([A-Z][A-Za-z0-9_]*Service)\s+([a-z][A-Za-z0-9_]*)/.exec(
+      line
+    );
+  if (serviceMatch?.[1]) {
+    relationships.push({
+      type: "service-dependency",
+      target: serviceMatch[1],
+      symbol: serviceMatch[1],
+      confidence: "medium",
+      reason: "A service-typed field or dependency appears in the active file."
+    });
+  }
+  const routeMatch = /\b(?:app|router)\.(get|post|put|delete|patch|use)\s*\(/.exec(line);
+  if (routeMatch?.[1]) {
+    relationships.push({
+      type: "route-handler",
+      target: `${routeMatch[1].toUpperCase()} route`,
+      confidence: "medium",
+      reason: "The active file declares an Express-style route."
+    });
+  }
+}
+
+function lineRange(line: number, text: string): CodeRange {
+  return { startLine: line, startCharacter: 0, endLine: line, endCharacter: text.length };
+}
+
+function isLocalImport(target: string): boolean {
+  return target.startsWith(".") || target.startsWith("/");
+}

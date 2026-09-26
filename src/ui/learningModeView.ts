@@ -9,6 +9,8 @@ import type {
   ProgressiveHint,
   SelectionContext
 } from "../core/models";
+import type { FrameworkDetection } from "../framework/models";
+import type { LanguageAnalysis } from "../language/models";
 import { getLanguageDisplayName, isSupportedLanguage } from "../learning/languageProfiles";
 
 export class LearningModeViewProvider implements vscode.WebviewViewProvider {
@@ -19,6 +21,8 @@ export class LearningModeViewProvider implements vscode.WebviewViewProvider {
   private hintSession: HintSession | undefined;
   private nextStep: NextStep | undefined;
   private projectAnalysis: ProjectAnalysis | undefined;
+  private languageAnalysis: LanguageAnalysis | undefined;
+  private frameworkDetections: readonly FrameworkDetection[] = [];
 
   constructor(private readonly extensionUri: vscode.Uri) {}
 
@@ -36,11 +40,15 @@ export class LearningModeViewProvider implements vscode.WebviewViewProvider {
     readonly hintSession: HintSession;
     readonly nextStep: NextStep;
     readonly projectAnalysis: ProjectAnalysis | undefined;
+    readonly languageAnalysis: LanguageAnalysis | undefined;
+    readonly frameworkDetections: readonly FrameworkDetection[];
   }): void {
     this.context = input.context;
     this.hintSession = input.hintSession;
     this.nextStep = input.nextStep;
     this.projectAnalysis = input.projectAnalysis;
+    this.languageAnalysis = input.languageAnalysis;
+    this.frameworkDetections = input.frameworkDetections;
     this.render();
   }
 
@@ -57,7 +65,9 @@ export class LearningModeViewProvider implements vscode.WebviewViewProvider {
       hintCount: this.hintSession?.hints.length ?? 0,
       hintIndex: this.hintSession?.currentIndex ?? 0,
       nextStep: this.nextStep,
-      projectAnalysis: this.projectAnalysis
+      projectAnalysis: this.projectAnalysis,
+      languageAnalysis: this.languageAnalysis,
+      frameworkDetections: this.frameworkDetections
     });
   }
 }
@@ -69,6 +79,8 @@ function renderHtml(input: {
   readonly hintIndex: number;
   readonly nextStep: NextStep | undefined;
   readonly projectAnalysis: ProjectAnalysis | undefined;
+  readonly languageAnalysis: LanguageAnalysis | undefined;
+  readonly frameworkDetections: readonly FrameworkDetection[];
 }): string {
   const context = input.context;
   const editor = context?.activeEditor;
@@ -228,7 +240,7 @@ function renderHtml(input: {
 
     <section class="panel">
       <h2>Project</h2>
-      ${renderProject(input.projectAnalysis)}
+      ${renderProject(input.projectAnalysis, input.languageAnalysis, input.frameworkDetections)}
     </section>
 
     <section class="panel">
@@ -253,7 +265,11 @@ function renderHtml(input: {
 </html>`;
 }
 
-function renderProject(projectAnalysis: ProjectAnalysis | undefined): string {
+function renderProject(
+  projectAnalysis: ProjectAnalysis | undefined,
+  languageAnalysis: LanguageAnalysis | undefined,
+  frameworkDetections: readonly FrameworkDetection[]
+): string {
   if (!projectAnalysis) {
     return `<p class="muted">Project context is starting.</p>`;
   }
@@ -269,6 +285,15 @@ function renderProject(projectAnalysis: ProjectAnalysis | undefined): string {
     .slice(0, 5)
     .map((script) => script.name)
     .join(", ");
+  const currentSymbol = languageAnalysis?.currentSymbol;
+  const languageStatus = languageAnalysis
+    ? languageStatusSummary(languageAnalysis)
+    : "Language structure is starting";
+  const frameworkSummary =
+    frameworkDetections.length > 0
+      ? frameworkDetections.map(formatFrameworkDetection).join(", ")
+      : "No supported framework evidence detected";
+  const codeRelationship = languageAnalysis?.relationships[0];
 
   return `<div class="meta">
     <div class="row">
@@ -299,7 +324,57 @@ function renderProject(projectAnalysis: ProjectAnalysis | undefined): string {
       <span class="label">Related file</span>
       <span class="value">${escapeHtml(related ? `${related.path}${related.exists ? "" : " (suggested)"}` : "No strong relationship found")}</span>
     </div>
+    <div class="row">
+      <span class="label">Code structure</span>
+      <span class="value">${escapeHtml(languageStatus)}</span>
+    </div>
+    <div class="row">
+      <span class="label">Current symbol</span>
+      <span class="value">${escapeHtml(currentSymbol ? `${currentSymbol.kind} ${currentSymbol.name}` : "No containing symbol detected")}</span>
+    </div>
+    <div class="row">
+      <span class="label">Framework signals</span>
+      <span class="value">${escapeHtml(frameworkSummary)}</span>
+    </div>
+    <div class="row">
+      <span class="label">Local relationship</span>
+      <span class="value">${escapeHtml(codeRelationship ? `${codeRelationship.type}: ${codeRelationship.target}` : "No local code relationship detected")}</span>
+    </div>
   </div>`;
+}
+
+function languageStatusSummary(languageAnalysis: LanguageAnalysis): string {
+  if (languageAnalysis.status === "analyzing") {
+    return "Analyzing code structure locally";
+  }
+  if (languageAnalysis.status === "unavailable") {
+    return languageAnalysis.message ?? "Code structure is unavailable";
+  }
+  const source =
+    languageAnalysis.source === "vscode-provider"
+      ? "VS Code symbols"
+      : languageAnalysis.source === "deterministic"
+        ? "deterministic fallback"
+        : "unavailable";
+  return `${String(languageAnalysis.symbols.length)} symbol(s) · ${source}${languageAnalysis.truncated ? " · truncated" : ""}`;
+}
+
+function formatFrameworkDetection(detection: FrameworkDetection): string {
+  const roles = detection.roles.length > 0 ? ` (${detection.roles.join(", ")})` : "";
+  return `${formatFrameworkName(detection.framework)} ${detection.confidence}${roles}`;
+}
+
+function formatFrameworkName(framework: FrameworkDetection["framework"]): string {
+  switch (framework) {
+    case "react":
+      return "React";
+    case "express":
+      return "Express";
+    case "django":
+      return "Django";
+    case "spring-boot":
+      return "Spring Boot";
+  }
 }
 
 function projectStatusMessage(projectAnalysis: ProjectAnalysis): string {

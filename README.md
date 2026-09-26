@@ -8,7 +8,7 @@ It is not intended to be another Copilot-style code generator. CodeShade focuses
 
 ## Status
 
-CodeShade is in early development. Phase 0 established the extension foundation. Phase 1 adds deterministic project intelligence so Learning Mode can understand useful local project facts without AI.
+CodeShade is in early development. Phase 0 established the extension foundation, Phase 1 added deterministic project intelligence, and Phase 2 is adding native-first language and framework intelligence without AI.
 
 ## Philosophy
 
@@ -34,6 +34,8 @@ Future optional intelligence providers must not become required for the core ext
 - Ecosystem, package/build tool, script and source/test structure signals.
 - Related source/test file suggestions when conventions are clear.
 - Optional local Git branch/change-state awareness.
+- Native-first code-structure awareness using VS Code language providers when available, with deterministic fallback parsing.
+- Evidence-based framework signals for React, Express, Django and Spring Boot.
 - Deterministic next-step suggestions.
 - Progressive hints that avoid giving away complete answers.
 - Command Palette actions for opening Learning Mode, refreshing context and stepping through hints.
@@ -47,7 +49,7 @@ Phase 0 includes lightweight detection profiles for:
 - Python
 - Java
 
-Phase 1 detects ecosystems and build/package tools. Full AST or framework intelligence is planned for later phases.
+Phase 1 detects ecosystems and build/package tools. Phase 2 adds native-first symbol awareness and deterministic framework signals for common React, Express, Django and Spring Boot patterns. CodeShade still does not perform full AST analysis or require external language servers.
 
 ## Project Intelligence
 
@@ -108,7 +110,7 @@ Open this repository in VS Code, press F5 and choose `Run CodeShade Extension`. 
 
 CodeShade follows Semantic Versioning. The current development release after Phase 1 is `0.2.0`.
 
-See [CHANGELOG.md](CHANGELOG.md) for milestone history and [docs/RELEASING.md](docs/RELEASING.md) for the release process.
+See [CHANGELOG.md](CHANGELOG.md) for milestone history and [docs/RELEASING.md](docs/RELEASING.md) for the release process. Phase 2 work is recorded under `Unreleased` until a future version PR prepares `0.3.0`.
 
 ## Project Status
 

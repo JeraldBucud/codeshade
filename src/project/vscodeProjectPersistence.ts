@@ -1,3 +1,5 @@
+import { TextDecoder, TextEncoder } from "node:util";
+
 import * as vscode from "vscode";
 
 import type { WorkspaceRoot } from "../core/models";

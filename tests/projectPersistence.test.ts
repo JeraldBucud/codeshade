@@ -21,6 +21,7 @@ function createMemoryAdapter() {
   let identityWrites = 0;
   let manifestWrites = 0;
   let catalogWrites = 0;
+  let storageDeletes = 0;
 
   const adapter: ProjectPersistenceAdapter = {
     readProjectIdentity: (projectRoot) => Promise.resolve(identities.get(projectRoot.uri)),
@@ -39,6 +40,12 @@ function createMemoryAdapter() {
       catalogWrites += 1;
       catalogs.set(id, content);
       return Promise.resolve();
+    },
+    deleteProjectStorage: (id) => {
+      storageDeletes += 1;
+      manifests.delete(id);
+      catalogs.delete(id);
+      return Promise.resolve();
     }
   };
 
@@ -49,7 +56,8 @@ function createMemoryAdapter() {
     catalogs,
     identityWrites: () => identityWrites,
     manifestWrites: () => manifestWrites,
-    catalogWrites: () => catalogWrites
+    catalogWrites: () => catalogWrites,
+    storageDeletes: () => storageDeletes
   };
 }
 
@@ -144,6 +152,31 @@ describe("project persistence service", () => {
       testFileCount: 1,
       codeFiles: ["src/app.test.ts", "src/app.ts"]
     });
+  });
+
+  it("clears external project data without deleting the stable project identity", async () => {
+    const memory = createMemoryAdapter();
+    const service = new ProjectPersistenceService(memory.adapter, {
+      createId: () => projectId,
+      now: () => new Date("2026-09-26T14:30:00.000Z")
+    });
+    const index = buildProjectIndex({
+      root,
+      sourceFiles: [{ relativePath: "src/app.ts" }],
+      metadataFiles: [],
+      scanLimit: 2500,
+      scanTruncated: false
+    });
+    await service.saveProjectCatalog(root, index);
+
+    expect(await service.clearProjectData(root)).toBe(true);
+    expect(memory.storageDeletes()).toBe(1);
+    expect(memory.catalogs.get(projectId)).toBeUndefined();
+    expect(memory.identities.get(root.uri)).toBeDefined();
+
+    const reopened = await service.ensureProject(root);
+    expect(reopened.projectId).toBe(projectId);
+    expect(reopened.identityCreated).toBe(false);
   });
 
   it("does not overwrite a malformed identity file", async () => {

@@ -46,6 +46,40 @@ export function resolveLocalRelationships(
   };
 }
 
+
+export function selectLearningRelationship(
+  analysis: LanguageAnalysis | undefined,
+  activePath?: string
+): LanguageRelationship | undefined {
+  if (!analysis) {
+    return undefined;
+  }
+
+  const relationships = analysis.relationships.filter(
+    (relationship) => !pointsToActiveFile(relationship.targetFile, activePath)
+  );
+  const localImports = analysis.imports.filter(
+    (relationship) =>
+      relationship.targetFile !== undefined &&
+      !pointsToActiveFile(relationship.targetFile, activePath)
+  );
+
+  return (
+    relationships.find((relationship) => relationship.targetFile !== undefined) ??
+    localImports[0] ??
+    relationships[0]
+  );
+}
+
+function pointsToActiveFile(targetFile: string | undefined, activePath: string | undefined): boolean {
+  if (!targetFile || !activePath) {
+    return false;
+  }
+  const normalizedTarget = normalizePath(targetFile);
+  const normalizedActive = normalizePath(activePath);
+  return normalizedActive === normalizedTarget || normalizedActive.endsWith(`/${normalizedTarget}`);
+}
+
 function resolveRelationshipTarget(
   relationship: LanguageRelationship,
   activePath: string,

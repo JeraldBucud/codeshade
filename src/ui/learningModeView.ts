@@ -5,6 +5,7 @@ import type {
   LearningContext,
   LearningDiagnostic,
   NextStep,
+  ProjectAnalysis,
   ProgressiveHint,
   SelectionContext
 } from "../core/models";
@@ -17,6 +18,7 @@ export class LearningModeViewProvider implements vscode.WebviewViewProvider {
   private context: LearningContext | undefined;
   private hintSession: HintSession | undefined;
   private nextStep: NextStep | undefined;
+  private projectAnalysis: ProjectAnalysis | undefined;
 
   constructor(private readonly extensionUri: vscode.Uri) {}
 
@@ -33,10 +35,12 @@ export class LearningModeViewProvider implements vscode.WebviewViewProvider {
     readonly context: LearningContext;
     readonly hintSession: HintSession;
     readonly nextStep: NextStep;
+    readonly projectAnalysis: ProjectAnalysis | undefined;
   }): void {
     this.context = input.context;
     this.hintSession = input.hintSession;
     this.nextStep = input.nextStep;
+    this.projectAnalysis = input.projectAnalysis;
     this.render();
   }
 
@@ -52,7 +56,8 @@ export class LearningModeViewProvider implements vscode.WebviewViewProvider {
         : undefined,
       hintCount: this.hintSession?.hints.length ?? 0,
       hintIndex: this.hintSession?.currentIndex ?? 0,
-      nextStep: this.nextStep
+      nextStep: this.nextStep,
+      projectAnalysis: this.projectAnalysis
     });
   }
 }
@@ -63,6 +68,7 @@ function renderHtml(input: {
   readonly hintCount: number;
   readonly hintIndex: number;
   readonly nextStep: NextStep | undefined;
+  readonly projectAnalysis: ProjectAnalysis | undefined;
 }): string {
   const context = input.context;
   const editor = context?.activeEditor;
@@ -221,6 +227,11 @@ function renderHtml(input: {
     </section>
 
     <section class="panel">
+      <h2>Project</h2>
+      ${renderProject(input.projectAnalysis)}
+    </section>
+
+    <section class="panel">
       <h2>Next Step</h2>
       ${
         input.nextStep
@@ -240,6 +251,80 @@ function renderHtml(input: {
   </main>
 </body>
 </html>`;
+}
+
+function renderProject(projectAnalysis: ProjectAnalysis | undefined): string {
+  if (!projectAnalysis) {
+    return `<p class="muted">Project context is starting.</p>`;
+  }
+
+  if (projectAnalysis.status !== "ready" || !projectAnalysis.snapshot) {
+    return `<p class="muted">${escapeHtml(projectStatusMessage(projectAnalysis))}</p>`;
+  }
+
+  const snapshot = projectAnalysis.snapshot;
+  const related = snapshot.relatedFiles[0];
+  const scripts = snapshot.scripts
+    .filter((script) => ["test", "build", "lint", "dev", "start"].includes(script.kind))
+    .slice(0, 5)
+    .map((script) => script.name)
+    .join(", ");
+
+  return `<div class="meta">
+    <div class="row">
+      <span class="label">Root</span>
+      <span class="value">${escapeHtml(snapshot.root.name)}</span>
+    </div>
+    <div class="row">
+      <span class="label">Ecosystems</span>
+      <span class="value">${escapeHtml(snapshot.ecosystems.join(", ") || "No supported ecosystem detected")}</span>
+    </div>
+    <div class="row">
+      <span class="label">Tools</span>
+      <span class="value">${escapeHtml(snapshot.tools.map((tool) => tool.label).join(", ") || "No build/package tool detected")}</span>
+    </div>
+    <div class="row">
+      <span class="label">Files</span>
+      <span class="value">${escapeHtml(`${String(snapshot.sourceFileCount)} source · ${String(snapshot.testFileCount)} test${snapshot.scanTruncated ? " · scan truncated" : ""}`)}</span>
+    </div>
+    <div class="row">
+      <span class="label">Git</span>
+      <span class="value">${escapeHtml(gitSummary(snapshot.git))}</span>
+    </div>
+    <div class="row">
+      <span class="label">Scripts</span>
+      <span class="value">${escapeHtml(scripts || "No common scripts found")}</span>
+    </div>
+    <div class="row">
+      <span class="label">Related file</span>
+      <span class="value">${escapeHtml(related ? `${related.path}${related.exists ? "" : " (suggested)"}` : "No strong relationship found")}</span>
+    </div>
+  </div>`;
+}
+
+function projectStatusMessage(projectAnalysis: ProjectAnalysis): string {
+  switch (projectAnalysis.status) {
+    case "no-workspace":
+      return "Open a workspace to analyze project context.";
+    case "analyzing":
+      return "Analyzing project context locally.";
+    case "unavailable":
+      return projectAnalysis.message ?? "Project context is unavailable.";
+    case "ready":
+      return "Project context is ready.";
+  }
+}
+
+function gitSummary(git: NonNullable<ProjectAnalysis["snapshot"]>["git"]): string {
+  if (!git.available) {
+    return git.error ?? "Unavailable";
+  }
+  if (!git.isRepository) {
+    return "Not a Git repository";
+  }
+  const branch = git.branch ? git.branch : "detached or unknown branch";
+  const state = git.isDirty ? `${String(git.changedFileCount ?? 0)} changed file(s)` : "clean";
+  return `${branch} · ${state}`;
 }
 
 function renderDiagnostic(diagnostic: LearningDiagnostic): string {

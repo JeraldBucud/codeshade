@@ -8,7 +8,7 @@ It is not intended to be another Copilot-style code generator. CodeShade focuses
 
 ## Status
 
-CodeShade is in early development. Phase 0 establishes the extension foundation, Activity Bar presence, deterministic Learning Mode and project structure. The experience is useful but intentionally simple.
+CodeShade is in early development. Phase 0 established the extension foundation. Phase 1 adds deterministic project intelligence so Learning Mode can understand useful local project facts without AI.
 
 ## Philosophy
 
@@ -19,7 +19,7 @@ CodeShade is in early development. Phase 0 establishes the extension foundation,
 
 ## Local-First Privacy
 
-Phase 0 does not include telemetry, analytics, cloud APIs, authentication, API keys, model downloads or hidden background communication. Code and project context stay inside VS Code.
+CodeShade does not include telemetry, analytics, cloud APIs, authentication, API keys, model downloads or hidden background communication. Code and project context stay inside VS Code.
 
 Future optional intelligence providers must not become required for the core extension to work.
 
@@ -30,6 +30,10 @@ Future optional intelligence providers must not become required for the core ext
 - Current project, file and language context.
 - Selection summary when code is selected.
 - Active-file diagnostics surfaced as learning context.
+- Cached local project intelligence for the resolved active project root.
+- Ecosystem, package/build tool, script and source/test structure signals.
+- Related source/test file suggestions when conventions are clear.
+- Optional local Git branch/change-state awareness.
 - Deterministic next-step suggestions.
 - Progressive hints that avoid giving away complete answers.
 - Command Palette actions for opening Learning Mode, refreshing context and stepping through hints.
@@ -43,7 +47,17 @@ Phase 0 includes lightweight detection profiles for:
 - Python
 - Java
 
-Full AST or framework intelligence is planned for later phases.
+Phase 1 detects ecosystems and build/package tools. Full AST or framework intelligence is planned for later phases.
+
+## Project Intelligence
+
+CodeShade starts from the VS Code workspace folder that contains the active file, then resolves the active software project by walking upward from that file to the workspace boundary and looking for strong project markers such as `package.json`, `pyproject.toml`, `pom.xml` or `build.gradle`. The nearest strong marker wins, so nested projects such as `workspace/frontend` or `workspace/EBusinessSystem` are treated as the active project instead of the outer workspace folder.
+
+Project discovery is location-agnostic. It does not depend on whether the workspace lives on Desktop, OneDrive, another drive or a Unix home directory. It also stays inside the folder the user opened in VS Code; CodeShade does not scan the whole computer, mounted drives or unrelated home folders.
+
+Project analysis keeps a structural index cached per resolved project root. Cursor movement, selection changes, diagnostics and ordinary text edits refresh the fast editor context and derive active-file relationships from the cached index without rescanning the project or refreshing Git. Manual refresh and relevant source/metadata file changes invalidate the affected project root. In multi-root workspaces, changes outside the active project do not force the active Learning Mode view to rescan.
+
+CodeShade discovers critical metadata files separately from the bounded source-file scan, so lock files and build wrappers such as `yarn.lock`, `gradlew` and `mvnw` can still be detected when source scanning is truncated. Local Git state is refreshed independently from structural project scanning, and the Git repository root may be above the active project root. CodeShade does not run package scripts, tests, builds, hooks or project code.
 
 ## Development Setup
 

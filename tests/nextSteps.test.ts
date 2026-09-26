@@ -1,12 +1,54 @@
 import { describe, expect, it } from "vitest";
 
-import type { LearningContext } from "../src/core/models";
+import type { LearningContext, ProjectAnalysis } from "../src/core/models";
 import { NextStepService } from "../src/learning/nextSteps";
 
 const workspace = {
   name: "demo",
   folderCount: 1,
-  hasWorkspace: true
+  hasWorkspace: true,
+  activeWorkspaceRoot: {
+    name: "demo",
+    uri: "file:///demo",
+    path: "/demo"
+  }
+};
+
+const readyProject: ProjectAnalysis = {
+  status: "ready",
+  root: workspace.activeWorkspaceRoot,
+  snapshot: {
+    root: workspace.activeWorkspaceRoot,
+    ecosystems: ["typescript"],
+    tools: [{ id: "pnpm", label: "pnpm", evidence: ["pnpm-lock.yaml"] }],
+    manifestFiles: ["package.json"],
+    configFiles: ["tsconfig.json"],
+    sourceRoots: ["src"],
+    testRoots: ["src"],
+    sourceFileCount: 2,
+    testFileCount: 1,
+    scanLimit: 2500,
+    scanTruncated: false,
+    scripts: [{ name: "test", kind: "test" }],
+    relatedFiles: [
+      {
+        path: "src/app.test.ts",
+        label: "Related test file",
+        relationship: "test",
+        confidence: "high",
+        exists: true,
+        reason: "Matches a common source/test naming convention."
+      }
+    ],
+    git: {
+      available: true,
+      isRepository: true,
+      branch: "feature/demo",
+      isDirty: true,
+      changedFileCount: 1,
+      activeFileStatus: "modified"
+    }
+  }
 };
 
 describe("next step service", () => {
@@ -138,5 +180,65 @@ describe("next step service", () => {
     expect(step.id).toBe("look-for-test-path");
     expect(step.detail).toContain("active file");
     expect(step.detail).not.toContain("project");
+  });
+
+  it("suggests related tests from project intelligence", () => {
+    const service = new NextStepService();
+    const step = service.choose(
+      {
+        status: "ready",
+        workspace,
+        project: { activeFileIsTest: false },
+        activeEditor: {
+          fileName: "app.ts",
+          relativePath: "src/app.ts",
+          languageId: "typescript",
+          isUntitled: false,
+          isDirty: false,
+          lineCount: 5,
+          diagnostics: [],
+          todoMarkers: []
+        }
+      },
+      readyProject
+    );
+
+    expect(step.id).toBe("inspect-related-test");
+    expect(step.detail).toContain("src/app.test.ts");
+  });
+
+  it("does not let project suggestions outrank active editor errors", () => {
+    const service = new NextStepService();
+    const step = service.choose(
+      {
+        status: "ready",
+        workspace,
+        project: { activeFileIsTest: false },
+        activeEditor: {
+          fileName: "app.ts",
+          relativePath: "src/app.ts",
+          languageId: "typescript",
+          isUntitled: false,
+          isDirty: false,
+          lineCount: 5,
+          diagnostics: [
+            {
+              message: "Cannot find name.",
+              severity: "error",
+              range: {
+                startLine: 0,
+                startCharacter: 0,
+                endLine: 0,
+                endCharacter: 4
+              }
+            }
+          ],
+          todoMarkers: []
+        }
+      },
+      readyProject
+    );
+
+    expect(step.id).toBe("investigate-first-diagnostic");
   });
 });

@@ -4,11 +4,11 @@ This roadmap describes broad direction, not immutable architecture.
 
 ## Phase 0 — Extension Foundation
 
-Current work. Establish a real VS Code extension with local-first Learning Mode, deterministic context, progressive hints, next-step suggestions, supported language foundations, tests, documentation and CI.
+Complete. Established a real VS Code extension with local-first Learning Mode, deterministic context, progressive hints, next-step suggestions, supported language foundations, tests, documentation and CI.
 
 ## Phase 1 — Deterministic Project Intelligence
 
-Add richer local project understanding: workspace structure, source/test relationships, Git state, package metadata, common scripts, configuration files, diagnostics and project navigation suggestions.
+Current phase. Add richer local project understanding: workspace structure, source/test relationships, Git state, package metadata, common scripts, configuration files, diagnostics and project navigation suggestions.
 
 ## Phase 2 — Language & Framework Intelligence
 

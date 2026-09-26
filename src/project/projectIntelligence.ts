@@ -1,0 +1,413 @@
+import * as vscode from "vscode";
+
+import type {
+  ActiveEditorContext,
+  GitProjectState,
+  ProjectAnalysis,
+  WorkspaceRoot
+} from "../core/models";
+import { readGitState } from "./gitAdapter";
+import { ProjectIndexCache } from "./projectCache";
+import { dirname, normalizePath } from "./pathUtils";
+import {
+  isPathInsideProject,
+  isStrongProjectMarker,
+  resolveProjectRootFromMarkers,
+  stripProjectPrefix,
+  strongProjectMarkerNames,
+  type ProjectRootResolution
+} from "./projectRootResolver";
+import {
+  buildProjectIndex,
+  buildProjectSnapshot,
+  isIgnoredProjectPath,
+  isKnownMetadataFile,
+  metadataFileNames,
+  type ProjectFileRecord,
+  type ProjectIndex
+} from "./projectScanner";
+
+const scanLimit = 2500;
+const metadataReadLimitBytes = 128 * 1024;
+const sourceIncludePattern = "**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs,py,java}";
+const excludePattern =
+  "**/{.git,node_modules,dist,build,out,target,coverage,.next,.venv,venv,__pycache__,vendor,generated}/**";
+
+export interface ProjectWorkspaceAdapter {
+  readonly getActiveWorkspaceRoot: () => WorkspaceRoot | undefined;
+  readonly resolveProjectRoot: (
+    activeEditor: ActiveEditorContext | undefined
+  ) => Promise<ProjectRootResolution | undefined>;
+  readonly resolveProjectRootForUri: (
+    uri: vscode.Uri
+  ) => Promise<ProjectRootResolution | undefined>;
+  readonly findSourceFiles: (
+    root: WorkspaceRoot,
+    limit: number
+  ) => Promise<readonly ProjectFileRecord[]>;
+  readonly findMetadataFiles: (root: WorkspaceRoot) => Promise<readonly ProjectFileRecord[]>;
+  readonly readGitState: (root: WorkspaceRoot, activeFile?: string) => Promise<GitProjectState>;
+}
+
+export class ProjectIntelligenceService {
+  private readonly cache = new ProjectIndexCache();
+  private readonly adapter: ProjectWorkspaceAdapter;
+  private gitCache = new Map<string, GitProjectState>();
+  private gitGenerations = new Map<string, number>();
+  private analyzing = new Set<string>();
+
+  constructor(adapter: ProjectWorkspaceAdapter = createVsCodeProjectAdapter()) {
+    this.adapter = adapter;
+  }
+
+  getCached(activeEditor?: ActiveEditorContext): ProjectAnalysis {
+    const workspaceRoot = this.adapter.getActiveWorkspaceRoot();
+    if (!workspaceRoot) {
+      return { status: "no-workspace", message: "Open a workspace to analyze project context." };
+    }
+
+    const cached = this.findCachedEntry(workspaceRoot, activeEditor?.relativePath);
+    if (!cached) {
+      return this.analyzing.has(workspaceRoot.uri)
+        ? {
+            status: "analyzing",
+            root: workspaceRoot,
+            message: "Analyzing project context locally."
+          }
+        : {
+            status: "analyzing",
+            root: workspaceRoot,
+            message: "Project context has not been analyzed yet."
+          };
+    }
+
+    const activeFile = activeEditor?.relativePath
+      ? stripProjectPrefix(activeEditor.relativePath, cached.root.relativePath)
+      : undefined;
+    return this.buildAnalysis(cached.index, activeFile, this.gitCache.get(cached.root.uri));
+  }
+
+  async analyze(
+    activeEditor: ActiveEditorContext | undefined,
+    options: { readonly force: boolean; readonly refreshGit: boolean }
+  ): Promise<ProjectAnalysis> {
+    const resolution = await this.adapter.resolveProjectRoot(activeEditor);
+    if (!resolution) {
+      return { status: "no-workspace", message: "Open a workspace to analyze project context." };
+    }
+
+    const root = resolution.projectRoot;
+    const activeFile = resolution.activeFile;
+    const cached = this.cache.get(root.uri);
+    if (!options.force && cached) {
+      const git = options.refreshGit
+        ? await this.refreshGitForRoot(root, activeFile)
+        : this.gitCache.get(root.uri);
+      return this.buildAnalysis(cached.index, activeFile, git);
+    }
+
+    const generation = this.cache.begin(root);
+    this.analyzing.add(root.uri);
+
+    try {
+      const index = await this.scanIndex(root);
+      if (!this.cache.setCurrent(root, generation, index)) {
+        const current = this.cache.get(root.uri);
+        return current
+          ? this.buildAnalysis(current.index, activeFile, this.gitCache.get(root.uri))
+          : { status: "analyzing", root, message: "Analyzing project context locally." };
+      }
+
+      const git = options.refreshGit
+        ? await this.refreshGitForRoot(root, activeFile)
+        : this.gitCache.get(root.uri);
+      return this.buildAnalysis(index, activeFile, git);
+    } catch (error) {
+      return {
+        status: "unavailable",
+        root,
+        message: error instanceof Error ? error.message : "Project analysis unavailable."
+      };
+    } finally {
+      this.analyzing.delete(root.uri);
+    }
+  }
+
+  async refreshGit(activeEditor: ActiveEditorContext | undefined): Promise<ProjectAnalysis> {
+    const resolution = await this.adapter.resolveProjectRoot(activeEditor);
+    if (!resolution) {
+      return { status: "no-workspace", message: "Open a workspace to analyze project context." };
+    }
+
+    const root = resolution.projectRoot;
+    const git = await this.refreshGitForRoot(root, resolution.activeFile);
+    const cached = this.cache.get(root.uri);
+    return cached
+      ? this.buildAnalysis(cached.index, resolution.activeFile, git)
+      : { status: "analyzing", root, message: "Project context has not been analyzed yet." };
+  }
+
+  async invalidateUri(uri: vscode.Uri): Promise<WorkspaceRoot | undefined> {
+    const resolution = await this.adapter.resolveProjectRootForUri(uri);
+    if (!resolution) {
+      return undefined;
+    }
+
+    this.invalidateRoot(resolution.projectRoot.uri);
+    return resolution.projectRoot;
+  }
+
+  invalidateRoot(rootUri: string): void {
+    this.cache.invalidate(rootUri);
+    this.gitCache.delete(rootUri);
+    this.gitGenerations.set(rootUri, (this.gitGenerations.get(rootUri) ?? 0) + 1);
+  }
+
+  private findCachedEntry(workspaceRoot: WorkspaceRoot, activeFile: string | undefined) {
+    const entries = this.cache.values();
+    const matching = entries
+      .filter(
+        (entry) =>
+          isWorkspaceProject(entry.root, workspaceRoot) &&
+          isPathInsideProject(activeFile, entry.root)
+      )
+      .sort((a, b) => (b.root.relativePath?.length ?? 0) - (a.root.relativePath?.length ?? 0));
+
+    return matching[0] ?? this.cache.get(workspaceRoot.uri);
+  }
+
+  private async scanIndex(root: WorkspaceRoot): Promise<ProjectIndex> {
+    const sourceFiles = await this.adapter.findSourceFiles(root, scanLimit + 1);
+    const scanTruncated = sourceFiles.length > scanLimit;
+    const boundedSourceFiles = sourceFiles.slice(0, scanLimit);
+    const metadataFiles = await this.adapter.findMetadataFiles(root);
+
+    return buildProjectIndex({
+      root,
+      sourceFiles: boundedSourceFiles,
+      metadataFiles,
+      scanLimit,
+      scanTruncated
+    });
+  }
+
+  private async refreshGitForRoot(
+    root: WorkspaceRoot,
+    activeFile: string | undefined
+  ): Promise<GitProjectState> {
+    const generation = (this.gitGenerations.get(root.uri) ?? 0) + 1;
+    this.gitGenerations.set(root.uri, generation);
+    const git = await this.adapter.readGitState(root, activeFile);
+
+    if (this.gitGenerations.get(root.uri) === generation) {
+      this.gitCache.set(root.uri, git);
+      return git;
+    }
+
+    return (
+      this.gitCache.get(root.uri) ?? {
+        available: false,
+        isRepository: false,
+        error: "A newer Git refresh is already in progress."
+      }
+    );
+  }
+
+  private buildAnalysis(
+    index: ProjectIndex,
+    activeFile: string | undefined,
+    git: GitProjectState | undefined
+  ): ProjectAnalysis {
+    return {
+      status: "ready",
+      root: index.root,
+      snapshot: buildProjectSnapshot({
+        index,
+        activeFile,
+        git: git ?? {
+          available: false,
+          isRepository: false,
+          error: "Git state has not been refreshed yet."
+        }
+      })
+    };
+  }
+}
+
+function createVsCodeProjectAdapter(): ProjectWorkspaceAdapter {
+  return {
+    getActiveWorkspaceRoot: resolveActiveWorkspaceRoot,
+    resolveProjectRoot: resolveActiveProjectRoot,
+    resolveProjectRootForUri,
+    findSourceFiles: findSourceFilesForRoot,
+    findMetadataFiles: findMetadataFilesForRoot,
+    readGitState: async (root, activeFile) =>
+      root.uri.startsWith("file:")
+        ? readGitState({ rootPath: vscode.Uri.parse(root.uri).fsPath, activeFile })
+        : {
+            available: false,
+            isRepository: false,
+            error: "Git state is unavailable for non-file workspace roots."
+          }
+  };
+}
+
+async function findSourceFilesForRoot(
+  root: WorkspaceRoot,
+  limit: number
+): Promise<readonly ProjectFileRecord[]> {
+  const folderUri = vscode.Uri.parse(root.uri);
+  const uris = await vscode.workspace.findFiles(
+    new vscode.RelativePattern(folderUri, sourceIncludePattern),
+    excludePattern,
+    limit
+  );
+
+  return uris
+    .map((uri) => uriRelativePath(uri, folderUri))
+    .filter((path) => !isIgnoredProjectPath(path))
+    .map((relativePath) => ({ relativePath }));
+}
+
+async function findMetadataFilesForRoot(
+  root: WorkspaceRoot
+): Promise<readonly ProjectFileRecord[]> {
+  const folderUri = vscode.Uri.parse(root.uri);
+  const records = await Promise.all(
+    metadataFileNames.map(async (name): Promise<ProjectFileRecord | undefined> => {
+      const uri = vscode.Uri.joinPath(folderUri, name);
+      try {
+        const stat = await vscode.workspace.fs.stat(uri);
+        if (stat.type === vscode.FileType.Directory) {
+          return undefined;
+        }
+
+        const relativePath = name;
+        if (!isKnownMetadataFile(relativePath) || stat.size > metadataReadLimitBytes) {
+          return { relativePath };
+        }
+
+        const content = new TextDecoder().decode(await vscode.workspace.fs.readFile(uri));
+        return { relativePath, content };
+      } catch {
+        return undefined;
+      }
+    })
+  );
+
+  return records.filter((record): record is ProjectFileRecord => record !== undefined);
+}
+
+function resolveActiveWorkspaceRoot(): WorkspaceRoot | undefined {
+  const activeUri = vscode.window.activeTextEditor?.document.uri;
+  const folder =
+    activeUri && activeUri.scheme !== "untitled"
+      ? vscode.workspace.getWorkspaceFolder(activeUri)
+      : vscode.workspace.workspaceFolders?.[0];
+
+  return folder ? toWorkspaceRoot(folder) : undefined;
+}
+
+function toWorkspaceRoot(folder: vscode.WorkspaceFolder): WorkspaceRoot {
+  return {
+    name: folder.name,
+    uri: folder.uri.toString(),
+    path: folder.uri.fsPath || folder.uri.path
+  };
+}
+
+async function resolveActiveProjectRoot(
+  activeEditor: ActiveEditorContext | undefined
+): Promise<ProjectRootResolution | undefined> {
+  const workspaceRoot = resolveActiveWorkspaceRoot();
+  if (!workspaceRoot) {
+    return undefined;
+  }
+
+  if (!activeEditor?.relativePath) {
+    return resolveProjectRootFromMarkers({ workspaceRoot, markerPaths: [] });
+  }
+
+  const markerPaths = await findAncestorProjectMarkers(
+    vscode.Uri.parse(workspaceRoot.uri),
+    activeEditor.relativePath
+  );
+  return resolveProjectRootFromMarkers({
+    workspaceRoot,
+    activeFile: activeEditor.relativePath,
+    markerPaths
+  });
+}
+
+async function resolveProjectRootForUri(
+  uri: vscode.Uri
+): Promise<ProjectRootResolution | undefined> {
+  const folder = vscode.workspace.getWorkspaceFolder(uri);
+  if (!folder) {
+    return undefined;
+  }
+
+  const workspaceRoot = toWorkspaceRoot(folder);
+  const activeFile = uriRelativePath(uri, folder.uri);
+  const markerPaths = isStrongProjectMarker(activeFile)
+    ? [activeFile, ...(await findAncestorProjectMarkers(folder.uri, activeFile))]
+    : await findAncestorProjectMarkers(folder.uri, activeFile);
+
+  return resolveProjectRootFromMarkers({ workspaceRoot, activeFile, markerPaths });
+}
+
+async function findAncestorProjectMarkers(
+  workspaceUri: vscode.Uri,
+  workspaceRelativePath: string
+): Promise<readonly string[]> {
+  const markers: string[] = [];
+  const directories = ancestorDirectories(dirname(workspaceRelativePath));
+
+  for (const directory of directories) {
+    for (const marker of strongProjectMarkerNames) {
+      const relativePath = directory ? `${directory}/${marker}` : marker;
+      const uri = vscode.Uri.joinPath(workspaceUri, ...relativePath.split("/"));
+      try {
+        const stat = await vscode.workspace.fs.stat(uri);
+        if (stat.type !== vscode.FileType.Directory) {
+          markers.push(relativePath);
+        }
+      } catch {
+        // Missing markers are expected while walking ancestors.
+      }
+    }
+  }
+
+  return markers;
+}
+
+function ancestorDirectories(startDirectory: string): readonly string[] {
+  const directories: string[] = [];
+  let current = normalizePath(startDirectory);
+
+  directories.push(current);
+  while (current) {
+    current = dirname(current);
+    directories.push(current);
+  }
+
+  return directories;
+}
+
+function uriRelativePath(uri: vscode.Uri, rootUri: vscode.Uri): string {
+  const rootPath = normalizePath(rootUri.path);
+  const childPath = normalizePath(uri.path);
+  return childPath === rootPath
+    ? ""
+    : childPath.startsWith(`${rootPath}/`)
+      ? childPath.slice(rootPath.length + 1)
+      : normalizePath(vscode.workspace.asRelativePath(uri, false));
+}
+
+function isWorkspaceProject(projectRoot: WorkspaceRoot, workspaceRoot: WorkspaceRoot): boolean {
+  return (
+    projectRoot.uri === workspaceRoot.uri ||
+    projectRoot.containingWorkspaceUri === workspaceRoot.uri ||
+    projectRoot.uri.startsWith(`${workspaceRoot.uri.replace(/\/$/, "")}/`)
+  );
+}

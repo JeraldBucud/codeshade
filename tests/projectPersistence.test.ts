@@ -18,6 +18,7 @@ function createMemoryAdapter() {
   const identities = new Map<string, string>();
   const manifests = new Map<string, string>();
   const catalogs = new Map<string, string>();
+  const knowledge = new Map<string, string>();
   let identityWrites = 0;
   let manifestWrites = 0;
   let catalogWrites = 0;
@@ -41,10 +42,24 @@ function createMemoryAdapter() {
       catalogs.set(id, content);
       return Promise.resolve();
     },
+    readProjectKnowledge: (id, key) => Promise.resolve(knowledge.get(`${id}:${key}`)),
+    writeProjectKnowledge: (id, key, content) => {
+      knowledge.set(`${id}:${key}`, content);
+      return Promise.resolve();
+    },
+    deleteProjectKnowledge: (id, key) => {
+      knowledge.delete(`${id}:${key}`);
+      return Promise.resolve();
+    },
     deleteProjectStorage: (id) => {
       storageDeletes += 1;
       manifests.delete(id);
       catalogs.delete(id);
+      for (const key of [...knowledge.keys()]) {
+        if (key.startsWith(`${id}:`)) {
+          knowledge.delete(key);
+        }
+      }
       return Promise.resolve();
     }
   };
@@ -54,6 +69,7 @@ function createMemoryAdapter() {
     identities,
     manifests,
     catalogs,
+    knowledge,
     identityWrites: () => identityWrites,
     manifestWrites: () => manifestWrites,
     catalogWrites: () => catalogWrites,

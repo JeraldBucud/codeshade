@@ -1,8 +1,8 @@
-# Releasing CodeShade
+# Releasing CodingSensei
 
-CodeShade uses Semantic Versioning: `MAJOR.MINOR.PATCH`.
+CodingSensei uses Semantic Versioning: `MAJOR.MINOR.PATCH`.
 
-While CodeShade is pre-1.0, minor versions represent meaningful product milestones or features, such as `0.2.0` to `0.3.0`. Patch versions represent compatible fixes, such as `0.2.0` to `0.2.1`. Breaking architectural changes may still happen before 1.0, but they must be documented clearly in the changelog and release notes.
+While CodingSensei is pre-1.0, minor versions represent meaningful product milestones or features, such as `0.2.0` to `0.3.0`. Patch versions represent compatible fixes, such as `0.2.0` to `0.2.1`. Breaking architectural changes may still happen before 1.0, but they must be documented clearly in the changelog and release notes.
 
 ## Milestone version convention
 
@@ -27,7 +27,7 @@ This avoids historical version mismatches and keeps release artifacts easy to au
 
 ## Historical Phase 0 handling
 
-Phase 0 is represented as historical milestone `0.1.0` in `CHANGELOG.md`. Because the repository manifest was still `0.0.1` at the Phase 0 merge, CodeShade intentionally will not create a retroactive `v0.1.0` release tag.
+Phase 0 is represented as historical milestone `0.1.0` in `CHANGELOG.md`. Because the repository manifest was still `0.0.1` at the Phase 0 merge, CodingSensei intentionally will not create a retroactive `v0.1.0` release tag.
 
 The first formal Git tag and GitHub Release will be `v0.2.0`.
 
@@ -48,7 +48,7 @@ The first formal Git tag and GitHub Release will be `v0.2.0`.
 8. Create an annotated Git tag:
 
    ```bash
-   git tag -a vX.Y.Z -m "CodeShade vX.Y.Z - <release name>"
+   git tag -a vX.Y.Z -m "CodingSensei vX.Y.Z - <release name>"
    ```
 
 9. Push the tag:
@@ -62,4 +62,4 @@ The first formal Git tag and GitHub Release will be `v0.2.0`.
 
 Do not automate publishing to the VS Code Marketplace yet. Marketplace, VSIX, npm, GitHub Release and tagging automation can be added later once the manual release process is stable.
 
-Future local model artifacts will have separate metadata and checksum handling. Model versions do not determine CodeShade's application SemVer.
+Future local model artifacts will have separate metadata and checksum handling. Model versions do not determine CodingSensei's application SemVer.

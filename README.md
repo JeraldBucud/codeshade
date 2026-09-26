@@ -34,8 +34,8 @@ Future optional intelligence providers must not become required for the core ext
 - Ecosystem, package/build tool, script and source/test structure signals.
 - Related source/test file suggestions when conventions are clear.
 - Optional local Git branch/change-state awareness.
-- Native-first code-structure awareness using VS Code language providers when available, with deterministic fallback parsing.
-- Evidence-based framework signals for React, Express, Django and Spring Boot.
+- Native-first code-structure awareness using VS Code symbols, definitions and references when available, with deterministic fallback parsing.
+- Evidence-based framework signals for React, Express, Django and Spring Boot using active-file evidence plus bounded project metadata summaries.
 - Deterministic next-step suggestions.
 - Progressive hints that avoid giving away complete answers.
 - Command Palette actions for opening Learning Mode, refreshing context and stepping through hints.
@@ -49,7 +49,7 @@ Phase 0 includes lightweight detection profiles for:
 - Python
 - Java
 
-Phase 1 detects ecosystems and build/package tools. Phase 2 adds native-first symbol awareness and deterministic framework signals for common React, Express, Django and Spring Boot patterns. CodeShade still does not perform full AST analysis or require external language servers.
+Phase 1 detects ecosystems and build/package tools. Phase 2 adds native-first symbol, definition and reference awareness plus deterministic framework signals for common React, Express, Django and Spring Boot patterns. CodeShade still does not perform full AST analysis, add Tree-sitter or require external language servers.
 
 ## Project Intelligence
 

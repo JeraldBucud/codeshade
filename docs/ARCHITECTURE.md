@@ -50,15 +50,15 @@ The source scanner is bounded to 2,500 relevant source files and marks the snaps
 
 ## Language Intelligence
 
-The language layer is scoped to the active document. CodeShade asks VS Code for document symbols through the built-in command API when a language provider is available. If no provider responds, it uses deterministic local heuristics to identify simple imports, classes, functions, methods, route handlers, JSX component usage, service-like dependencies and entry-point signals.
+The language layer is scoped to the active document. CodeShade asks VS Code for document symbols through the built-in command API when a language provider is available. For the current active symbol only, it may also ask VS Code definition and reference providers for bounded local project relationships. If providers are unavailable, it uses deterministic local heuristics to identify simple imports, classes, functions, methods, route handlers, JSX component usage, service-like dependencies and entry-point signals.
 
-Language analysis is cached by document URI and version. Cursor movement and selection changes derive the current containing symbol from cached symbols and do not ask providers to recompute. Active editor changes, saves and manual refreshes may refresh language analysis. Generation checks prevent stale provider results from replacing newer active-file analysis. The fallback parser is intentionally shallow and bounded; it does not pretend to be a full AST.
+Language analysis is cached by document URI and version with a small bounded cache. Cursor movement, selection changes and diagnostics derive the current containing symbol from cached symbols and do not read or regex-scan the full document. Ordinary text edits update fast editor context immediately and schedule a debounced language/framework refresh. Active editor changes, saves and manual refreshes may refresh language analysis. Generation checks are scoped by document URI so stale results cannot overwrite newer cache entries for the same document, while controller identity checks prevent stale async work from replacing the active UI state. The fallback parser is intentionally shallow and bounded; it does not pretend to be a full AST.
 
 ## Framework Intelligence
 
-Framework detection is evidence-based and advisory. Phase 2 detects React, Express, Django and Spring Boot only when recognizable file/text/project signals exist. Detections include confidence, evidence and roles such as component, hook, router, route handler, Django URL configuration, model, view, Spring controller, service, repository or application bootstrap.
+Framework detection is evidence-based and advisory. Phase 2 detects React, Express, Django and Spring Boot only when recognizable active-file evidence combines with strong framework signals such as imports or bounded project metadata summaries. Detections include confidence, evidence and roles such as component, hook, router, route handler, Django URL configuration, model, view, Spring controller, service, repository or application bootstrap.
 
-CodeShade does not execute framework code, run project scripts or infer framework behavior from weak evidence. Framework signals feed the Learning Mode Project section and next-step ranking as learning guidance, not automation.
+Project metadata evidence is normalized to package/build identifiers from already-read small metadata files, such as `package.json`, `requirements.txt`, `pyproject.toml`, Maven and Gradle files. CodeShade does not execute framework code, run project scripts or infer framework behavior from weak evidence. Framework signals feed the Learning Mode Project section and next-step ranking as learning guidance, not automation.
 
 ## Source/Test Relationships
 
@@ -85,7 +85,7 @@ Hints avoid generating complete replacement code because CodeShade should help t
 
 ## Future Analysis Layer
 
-Richer deterministic analysis can be added behind the existing context, project, language and framework boundaries. Future work can deepen language and framework understanding without rewriting the Activity Bar UI.
+Richer deterministic analysis can be added behind the existing context, project, language and framework boundaries. Future work can deepen language and framework understanding without rewriting the Activity Bar UI. Tree-sitter or AST-backed analysis remains deferred until it provides clear value over the native-provider and deterministic fallback layers.
 
 ## Future Local Intelligence Layer
 

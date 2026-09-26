@@ -338,7 +338,7 @@ function renderProject(
     </div>
     <div class="row">
       <span class="label">Local relationship</span>
-      <span class="value">${escapeHtml(codeRelationship ? `${codeRelationship.type}: ${codeRelationship.target}` : "No local code relationship detected")}</span>
+      <span class="value">${escapeHtml(codeRelationship ? `${codeRelationship.type}: ${codeRelationship.targetFile ?? codeRelationship.target}` : "No local code relationship detected")}</span>
     </div>
   </div>`;
 }

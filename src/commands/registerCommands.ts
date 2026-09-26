@@ -10,13 +10,15 @@ import type { WorkspaceContextService } from "../context/workspaceContext";
 import type { ProgressiveHintEngine } from "../learning/hints";
 import type { NextStepService } from "../learning/nextSteps";
 import type { ProjectIntelligenceService } from "../project/projectIntelligence";
-import { isPathInsideProject } from "../project/projectRootResolver";
+import { isPathInsideProject, stripProjectPrefix } from "../project/projectRootResolver";
 import { isIgnoredProjectPath } from "../project/projectScanner";
 import { LearningModeViewProvider } from "../ui/learningModeView";
+import { DebouncedAction } from "../utils/debouncedAction";
 
 type RefreshMode = "fast" | "ensure-project" | "refresh-git" | "force-project";
 
 export class CodeShadeController implements vscode.Disposable {
+  private static readonly languageDebounceMs = 350;
   private readonly disposables: vscode.Disposable[] = [];
   private currentContext: LearningContext | undefined;
   private hintSession: HintSession | undefined;
@@ -25,6 +27,12 @@ export class CodeShadeController implements vscode.Disposable {
   private languageAnalysis: LanguageAnalysis | undefined;
   private frameworkDetections: readonly FrameworkDetection[] = [];
   private readonly languageService = new LanguageIntelligenceService(new VsCodeLanguageAdapter());
+  private readonly debouncedLanguageRefresh = new DebouncedAction(
+    CodeShadeController.languageDebounceMs,
+    () => {
+      void this.refreshLanguage(false);
+    }
+  );
 
   constructor(
     private readonly contextService: WorkspaceContextService,
@@ -74,6 +82,7 @@ export class CodeShadeController implements vscode.Disposable {
       vscode.workspace.onDidChangeTextDocument((event) => {
         if (isActiveDocument(event.document)) {
           this.refresh("fast");
+          this.scheduleLanguageRefresh();
         }
       }),
       vscode.workspace.onDidSaveTextDocument((document) => {
@@ -112,6 +121,7 @@ export class CodeShadeController implements vscode.Disposable {
   }
 
   dispose(): void {
+    this.debouncedLanguageRefresh.cancel();
     for (const disposable of this.disposables) {
       disposable.dispose();
     }
@@ -138,8 +148,7 @@ export class CodeShadeController implements vscode.Disposable {
         )
       };
     }
-    this.languageAnalysis = this.languageService.getCached(this.collectLanguageDocument());
-    this.frameworkDetections = this.collectFrameworkDetections();
+    this.languageAnalysis = this.languageService.getCached(this.collectLanguageDocumentIdentity());
     this.nextStep = this.nextStepService.choose(
       this.currentContext,
       this.projectAnalysis,
@@ -151,14 +160,17 @@ export class CodeShadeController implements vscode.Disposable {
       case "fast":
         return;
       case "refresh-git":
+        this.debouncedLanguageRefresh.cancel();
         void this.refreshLanguage(true);
         void this.refreshGit();
         return;
       case "force-project":
+        this.debouncedLanguageRefresh.cancel();
         void this.refreshLanguage(true);
         void this.refreshProject({ force: true, refreshGit: true });
         return;
       case "ensure-project":
+        this.debouncedLanguageRefresh.cancel();
         void this.refreshLanguage(false);
         void this.refreshProject({ force: false, refreshGit: true });
         return;
@@ -229,7 +241,7 @@ export class CodeShadeController implements vscode.Disposable {
     }
 
     this.languageAnalysis = analysis;
-    this.frameworkDetections = this.collectFrameworkDetections();
+    this.frameworkDetections = this.collectFrameworkDetections(document, analysis);
     this.nextStep = this.nextStepService.choose(
       this.currentContext,
       this.projectAnalysis,
@@ -237,6 +249,10 @@ export class CodeShadeController implements vscode.Disposable {
       this.frameworkDetections
     );
     this.publish();
+  }
+
+  private scheduleLanguageRefresh(): void {
+    this.debouncedLanguageRefresh.schedule();
   }
 
   private async invalidateChangedProject(uri: vscode.Uri): Promise<void> {
@@ -296,7 +312,8 @@ export class CodeShadeController implements vscode.Disposable {
     });
   }
 
-  private collectLanguageDocument(): LanguageDocumentInput | undefined {
+  private collectLanguageDocumentIdentity():
+    Pick<LanguageDocumentInput, "uri" | "version" | "cursor"> | undefined {
     const editor = vscode.window.activeTextEditor;
     if (!editor || editor.document.uri.scheme === "untitled") {
       return undefined;
@@ -304,8 +321,32 @@ export class CodeShadeController implements vscode.Disposable {
 
     return {
       uri: editor.document.uri.toString(),
+      version: editor.document.version,
+      cursor: {
+        line: editor.selection.active.line,
+        character: editor.selection.active.character
+      }
+    };
+  }
+
+  private collectLanguageDocument(): LanguageDocumentInput | undefined {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document.uri.scheme === "untitled") {
+      return undefined;
+    }
+    const relativePath = vscode.workspace.asRelativePath(editor.document.uri, false);
+    const projectRoot = this.projectAnalysis?.snapshot?.root;
+    const projectRelativePath = projectRoot
+      ? stripProjectPrefix(relativePath, projectRoot.relativePath)
+      : relativePath;
+
+    return {
+      uri: editor.document.uri.toString(),
       fileName: editor.document.fileName,
-      relativePath: vscode.workspace.asRelativePath(editor.document.uri, false),
+      relativePath,
+      projectRootUri: projectRoot?.uri,
+      projectRelativePath,
+      knownProjectFiles: this.projectAnalysis?.snapshot?.codeFiles,
       languageId: editor.document.languageId,
       version: editor.document.version,
       text: editor.document.getText(),
@@ -316,19 +357,18 @@ export class CodeShadeController implements vscode.Disposable {
     };
   }
 
-  private collectFrameworkDetections(): readonly FrameworkDetection[] {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor || editor.document.uri.scheme === "untitled") {
-      return [];
-    }
-
+  private collectFrameworkDetections(
+    document: LanguageDocumentInput,
+    languageAnalysis: LanguageAnalysis
+  ): readonly FrameworkDetection[] {
     return detectFrameworks({
-      fileName: editor.document.fileName,
-      relativePath: vscode.workspace.asRelativePath(editor.document.uri, false),
-      languageId: editor.document.languageId,
-      text: editor.document.getText(),
-      languageAnalysis: this.languageAnalysis,
-      manifestFiles: this.projectAnalysis?.snapshot?.manifestFiles
+      fileName: document.fileName,
+      relativePath: document.relativePath,
+      languageId: document.languageId,
+      text: document.text,
+      languageAnalysis,
+      manifestFiles: this.projectAnalysis?.snapshot?.manifestFiles,
+      metadataPackageNames: this.projectAnalysis?.snapshot?.metadata.packageNames
     });
   }
 }

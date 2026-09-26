@@ -61,6 +61,9 @@ export interface LanguageDocumentInput {
   readonly uri: string;
   readonly fileName: string;
   readonly relativePath?: string;
+  readonly projectRootUri?: string;
+  readonly projectRelativePath?: string;
+  readonly knownProjectFiles?: readonly string[];
   readonly languageId: string;
   readonly version: number;
   readonly text: string;

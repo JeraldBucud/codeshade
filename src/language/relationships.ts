@@ -29,7 +29,7 @@ export function analyzeDeterministicStructure(input: {
     }
   });
 
-  return { symbols, imports, relationships, entryPointSignals };
+  return { symbols: extendSymbolRanges(symbols, lines), imports, relationships, entryPointSignals };
 }
 
 function collectImports(line: string, imports: LanguageRelationship[]): void {
@@ -122,6 +122,88 @@ function collectRelationships(line: string, relationships: LanguageRelationship[
 
 function lineRange(line: number, text: string): CodeRange {
   return { startLine: line, startCharacter: 0, endLine: line, endCharacter: text.length };
+}
+
+function extendSymbolRanges(
+  symbols: readonly LanguageSymbol[],
+  lines: readonly string[]
+): readonly LanguageSymbol[] {
+  return symbols.map((symbol) => ({
+    ...symbol,
+    range: estimateBlockRange(symbol.range.startLine, lines) ?? symbol.range
+  }));
+}
+
+function estimateBlockRange(startLine: number, lines: readonly string[]): CodeRange | undefined {
+  const braceRange = estimateBraceRange(startLine, lines);
+  if (braceRange) {
+    return braceRange;
+  }
+  return estimateIndentRange(startLine, lines);
+}
+
+function estimateBraceRange(startLine: number, lines: readonly string[]): CodeRange | undefined {
+  let depth = 0;
+  let started = false;
+  for (
+    let lineNumber = startLine;
+    lineNumber < Math.min(lines.length, startLine + 500);
+    lineNumber += 1
+  ) {
+    const line = lines[lineNumber] ?? "";
+    for (const character of line) {
+      if (character === "{") {
+        depth += 1;
+        started = true;
+      } else if (character === "}") {
+        depth -= 1;
+        if (started && depth <= 0) {
+          return {
+            startLine,
+            startCharacter: 0,
+            endLine: lineNumber,
+            endCharacter: line.length
+          };
+        }
+      }
+    }
+  }
+  return undefined;
+}
+
+function estimateIndentRange(startLine: number, lines: readonly string[]): CodeRange | undefined {
+  const declaration = lines[startLine];
+  if (!declaration?.trim().endsWith(":")) {
+    return undefined;
+  }
+  const baseIndent = leadingSpaces(declaration);
+  let endLine = startLine;
+  for (
+    let lineNumber = startLine + 1;
+    lineNumber < Math.min(lines.length, startLine + 500);
+    lineNumber += 1
+  ) {
+    const line = lines[lineNumber] ?? "";
+    if (!line.trim()) {
+      continue;
+    }
+    if (leadingSpaces(line) <= baseIndent) {
+      break;
+    }
+    endLine = lineNumber;
+  }
+  return endLine > startLine
+    ? {
+        startLine,
+        startCharacter: 0,
+        endLine,
+        endCharacter: lines[endLine]?.length ?? 0
+      }
+    : undefined;
+}
+
+function leadingSpaces(value: string): number {
+  return value.length - value.trimStart().length;
 }
 
 function isLocalImport(target: string): boolean {

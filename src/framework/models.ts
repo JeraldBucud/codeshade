@@ -33,4 +33,5 @@ export interface FrameworkInput {
   readonly text: string;
   readonly languageAnalysis?: LanguageAnalysis;
   readonly manifestFiles?: readonly string[];
+  readonly metadataPackageNames?: readonly string[];
 }

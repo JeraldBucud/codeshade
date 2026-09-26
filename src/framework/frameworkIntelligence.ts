@@ -17,6 +17,8 @@ export function detectFrameworks(input: FrameworkInput): readonly FrameworkDetec
 function detectReact(input: FrameworkInput): FrameworkDetection | undefined {
   const evidence: FrameworkEvidence[] = [];
   const roles: FrameworkRole[] = [];
+  const hasReactDependency = hasPackage(input, "react") || hasPackage(input, "react-dom");
+  if (hasReactDependency) evidence.push({ source: "metadata", description: "React dependency" });
   if (/from\s+["']react["']|require\(["']react["']\)/.test(input.text))
     evidence.push({ source: "text", description: "imports React" });
   if (/\.(tsx|jsx)$/i.test(input.fileName) && /<[A-Z][A-Za-z0-9_]*/.test(input.text))
@@ -32,6 +34,9 @@ function detectReact(input: FrameworkInput): FrameworkDetection | undefined {
 function detectExpress(input: FrameworkInput): FrameworkDetection | undefined {
   const evidence: FrameworkEvidence[] = [];
   const roles: FrameworkRole[] = [];
+  const hasExpressDependency = hasPackage(input, "express");
+  if (hasExpressDependency)
+    evidence.push({ source: "metadata", description: "Express dependency" });
   if (/from\s+["']express["']|require\(["']express["']\)/.test(input.text))
     evidence.push({ source: "text", description: "imports Express" });
   if (/\bRouter\s*\(|\bexpress\s*\(/.test(input.text)) {
@@ -42,7 +47,7 @@ function detectExpress(input: FrameworkInput): FrameworkDetection | undefined {
     evidence.push({ source: "text", description: "declares Express-style route handlers" });
     roles.push("route-handler");
   }
-  return evidence.length >= 2
+  return evidence.length >= 2 && roles.length > 0
     ? { framework: "express", confidence: "high", evidence, roles: unique(roles) }
     : undefined;
 }
@@ -50,6 +55,8 @@ function detectExpress(input: FrameworkInput): FrameworkDetection | undefined {
 function detectDjango(input: FrameworkInput): FrameworkDetection | undefined {
   const evidence: FrameworkEvidence[] = [];
   const roles: FrameworkRole[] = [];
+  const hasDjangoDependency = hasPackage(input, "django");
+  if (hasDjangoDependency) evidence.push({ source: "metadata", description: "Django dependency" });
   if (/\bfrom\s+django\b|\bimport\s+django\b/.test(input.text))
     evidence.push({ source: "text", description: "imports Django" });
   if (input.relativePath?.endsWith("urls.py")) {
@@ -58,7 +65,7 @@ function detectDjango(input: FrameworkInput): FrameworkDetection | undefined {
   }
   if (/models\.Model/.test(input.text)) roles.push("model");
   if (/def\s+\w+\s*\(\s*request\b|class\s+\w+View\b/.test(input.text)) roles.push("view");
-  return evidence.length > 0 && roles.length > 0
+  return evidence.length > 1 && roles.length > 0
     ? {
         framework: "django",
         confidence: evidence.length > 1 ? "high" : "medium",
@@ -71,6 +78,12 @@ function detectDjango(input: FrameworkInput): FrameworkDetection | undefined {
 function detectSpringBoot(input: FrameworkInput): FrameworkDetection | undefined {
   const evidence: FrameworkEvidence[] = [];
   const roles: FrameworkRole[] = [];
+  const hasSpringBootMetadata =
+    hasPackage(input, "spring-boot") ||
+    hasPackage(input, "spring-boot-starter") ||
+    input.metadataPackageNames?.some((name) => name.startsWith("spring-boot-starter")) === true;
+  if (hasSpringBootMetadata)
+    evidence.push({ source: "metadata", description: "Spring Boot dependency or plugin" });
   if (/@SpringBootApplication/.test(input.text)) {
     evidence.push({ source: "text", description: "uses @SpringBootApplication" });
     roles.push("application-bootstrap");
@@ -87,9 +100,8 @@ function detectSpringBoot(input: FrameworkInput): FrameworkDetection | undefined
     evidence.push({ source: "text", description: "uses @Repository" });
     roles.push("repository");
   }
-  if (/spring-boot/.test(input.text))
-    evidence.push({ source: "metadata", description: "contains Spring Boot metadata text" });
-  return evidence.length > 0
+  const hasBootEvidence = hasSpringBootMetadata || /@SpringBootApplication/.test(input.text);
+  return hasBootEvidence
     ? {
         framework: "spring-boot",
         confidence: evidence.length > 1 ? "high" : "medium",
@@ -101,4 +113,10 @@ function detectSpringBoot(input: FrameworkInput): FrameworkDetection | undefined
 
 function unique<T>(items: readonly T[]): readonly T[] {
   return [...new Set(items)];
+}
+
+function hasPackage(input: FrameworkInput, name: string): boolean {
+  return (
+    input.metadataPackageNames?.some((packageName) => packageName.toLowerCase() === name) === true
+  );
 }

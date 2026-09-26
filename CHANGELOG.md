@@ -9,10 +9,12 @@ Notable CodeShade changes are recorded here. CodeShade follows Semantic Versioni
 Added in-progress Phase 2 foundations:
 
 - Native-first active-document symbol analysis using VS Code language providers when available.
+- Focused VS Code definition/reference lookups for bounded local active-symbol relationships.
 - Bounded deterministic fallback parsing for simple symbols, imports, entry points and local code relationships.
-- Evidence-based framework signals for React, Express, Django and Spring Boot.
+- Conservative local relationship resolution for project imports and Java service-style dependencies.
+- Evidence-based framework signals for React, Express, Django and Spring Boot using active-file signals plus bounded metadata summaries.
 - Language and framework signals in Learning Mode and next-step guidance without running project code.
-- Cached document-version language analysis so fast editor events stay cheap.
+- Cached document-version language analysis with debounced edit refreshes so fast editor events stay cheap.
 
 No version bump or formal release tag has been created for these unreleased changes.
 

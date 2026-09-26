@@ -133,7 +133,7 @@ function collectLanguageSteps(
     steps.push({
       id: `inspect-${firstRelationship.type}`,
       title: relationshipTitle(firstRelationship.type),
-      detail: `${firstRelationship.target}: ${firstRelationship.reason}`,
+      detail: relationshipDetail(firstRelationship),
       priority: 58
     });
   }
@@ -160,6 +160,15 @@ function collectLanguageSteps(
   }
 
   return steps;
+}
+
+function relationshipDetail(
+  relationship: NonNullable<LanguageAnalysis["relationships"][number]>
+): string {
+  if (relationship.targetFile) {
+    return `${relationship.targetFile}: ${relationship.reason}`;
+  }
+  return `${relationship.target}: ${relationship.reason}`;
 }
 
 function relationshipTitle(

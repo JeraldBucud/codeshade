@@ -17,6 +17,9 @@ function documentInput(overrides: Partial<LanguageDocumentInput> = {}): Language
     version: 1,
     text: "import React from 'react';\nfunction App() {\n  return <Header />;\n}\n",
     cursor: { line: 1, character: 10 },
+    projectRootUri: "file:///demo",
+    projectRelativePath: "src/App.tsx",
+    knownProjectFiles: ["src/App.tsx", "src/Header.tsx", "src/services/UserService.java"],
     ...overrides
   };
 }
@@ -54,6 +57,34 @@ describe("language intelligence", () => {
     expect(analysis.relationships[0]).toMatchObject({ type: "renders", target: "Header" });
   });
 
+  it("resolves local TS/JS imports to known project files conservatively", async () => {
+    const service = new LanguageIntelligenceService();
+    const analysis = await service.analyze(
+      documentInput({
+        text: "import LoginForm from './components/LoginForm';\nfunction App() { return <LoginForm />; }",
+        knownProjectFiles: ["src/App.tsx", "src/components/LoginForm.tsx"]
+      })
+    );
+
+    expect(analysis.imports[0]).toMatchObject({
+      target: "./components/LoginForm",
+      targetFile: "src/components/LoginForm.tsx",
+      confidence: "high"
+    });
+  });
+
+  it("leaves unresolved imports conservative instead of inventing paths", async () => {
+    const service = new LanguageIntelligenceService();
+    const analysis = await service.analyze(
+      documentInput({
+        text: "import Missing from './Missing';\nfunction App() { return <Missing />; }",
+        knownProjectFiles: ["src/App.tsx"]
+      })
+    );
+
+    expect(analysis.imports[0]?.targetFile).toBeUndefined();
+  });
+
   it("detects Java service dependencies and entry points without AST parsing", () => {
     const structure = analyzeDeterministicStructure({
       fileName: "DemoController.java",
@@ -66,6 +97,42 @@ describe("language intelligence", () => {
       target: "AccountService"
     });
     expect(structure.entryPointSignals).toContain("Java main method");
+  });
+
+  it("resolves Java service dependencies when one known local candidate exists", async () => {
+    const service = new LanguageIntelligenceService();
+    const analysis = await service.analyze(
+      documentInput({
+        uri: "file:///demo/src/main/java/app/UserController.java",
+        fileName: "UserController.java",
+        relativePath: "src/main/java/app/UserController.java",
+        projectRelativePath: "src/main/java/app/UserController.java",
+        languageId: "java",
+        text: "class UserController {\n private final UserService userService;\n}",
+        knownProjectFiles: [
+          "src/main/java/app/UserController.java",
+          "src/main/java/app/UserService.java"
+        ]
+      })
+    );
+
+    expect(analysis.relationships[0]).toMatchObject({
+      type: "service-dependency",
+      targetFile: "src/main/java/app/UserService.java",
+      symbol: "UserService"
+    });
+  });
+
+  it("extends fallback symbol ranges with bounded block heuristics", async () => {
+    const service = new LanguageIntelligenceService();
+    const analysis = await service.analyze(
+      documentInput({
+        text: "function App() {\n  const value = 1;\n  return value;\n}\n",
+        cursor: { line: 2, character: 5 }
+      })
+    );
+
+    expect(analysis.currentSymbol?.name).toBe("App");
   });
 
   it("reuses cached provider analysis for cursor movement", async () => {
@@ -147,5 +214,68 @@ describe("language intelligence", () => {
 
     expect(second.symbols[0]?.name).toBe("Newer");
     expect(cached.symbols[0]?.name).toBe("Newer");
+  });
+
+  it("keeps stale analysis protection scoped per document URI", async () => {
+    let releaseFirst: ((analysis: LanguageAnalysis) => void) | undefined;
+    const adapter: LanguageProviderAdapter = {
+      analyzeDocument: (document) =>
+        document.uri.endsWith("One.ts")
+          ? new Promise((resolve) => {
+              releaseFirst = resolve;
+            })
+          : Promise.resolve(analysisFor(document, "Two"))
+    };
+    const service = new LanguageIntelligenceService(adapter);
+
+    const one = service.analyze(
+      documentInput({ uri: "file:///demo/src/One.ts", fileName: "One.ts" })
+    );
+    const two = await service.analyze(
+      documentInput({ uri: "file:///demo/src/Two.ts", fileName: "Two.ts" })
+    );
+    releaseFirst?.(
+      analysisFor(documentInput({ uri: "file:///demo/src/One.ts", fileName: "One.ts" }), "One")
+    );
+    await one;
+
+    expect(two.symbols[0]?.name).toBe("Two");
+    expect(
+      service.getCached({
+        uri: "file:///demo/src/One.ts",
+        version: 1,
+        cursor: { line: 1, character: 1 }
+      }).symbols[0]?.name
+    ).toBe("One");
+  });
+
+  it("bounds the language analysis cache", async () => {
+    const service = new LanguageIntelligenceService({
+      analyzeDocument: (document) => Promise.resolve(analysisFor(document, document.fileName))
+    });
+
+    for (let index = 0; index < 55; index += 1) {
+      await service.analyze(
+        documentInput({
+          uri: `file:///demo/src/File${String(index)}.ts`,
+          fileName: `File${String(index)}.ts`
+        })
+      );
+    }
+
+    expect(
+      service.getCached({
+        uri: "file:///demo/src/File0.ts",
+        version: 1,
+        cursor: { line: 1, character: 1 }
+      }).status
+    ).toBe("analyzing");
+    expect(
+      service.getCached({
+        uri: "file:///demo/src/File54.ts",
+        version: 1,
+        cursor: { line: 1, character: 1 }
+      }).symbols[0]?.name
+    ).toBe("File54.ts");
   });
 });

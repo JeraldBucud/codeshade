@@ -23,6 +23,7 @@ const readyProject: ProjectAnalysis = {
     root: workspace.activeWorkspaceRoot,
     ecosystems: ["typescript"],
     tools: [{ id: "pnpm", label: "pnpm", evidence: ["pnpm-lock.yaml"] }],
+    codeFiles: ["src/app.ts", "src/app.test.ts"],
     manifestFiles: ["package.json"],
     configFiles: ["tsconfig.json"],
     sourceRoots: ["src"],
@@ -42,6 +43,7 @@ const readyProject: ProjectAnalysis = {
         reason: "Matches a common source/test naming convention."
       }
     ],
+    metadata: { packageNames: ["react"] },
     git: {
       available: true,
       isRepository: true,

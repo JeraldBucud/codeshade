@@ -139,6 +139,7 @@ export interface ProjectSnapshot {
   readonly root: WorkspaceRoot;
   readonly ecosystems: readonly ProjectEcosystem[];
   readonly tools: readonly ProjectTool[];
+  readonly codeFiles: readonly string[];
   readonly manifestFiles: readonly string[];
   readonly configFiles: readonly string[];
   readonly sourceRoots: readonly string[];
@@ -148,8 +149,13 @@ export interface ProjectSnapshot {
   readonly scanLimit: number;
   readonly scanTruncated: boolean;
   readonly scripts: readonly ProjectScript[];
+  readonly metadata: ProjectMetadataSummary;
   readonly relatedFiles: readonly RelatedFileCandidate[];
   readonly git: GitProjectState;
+}
+
+export interface ProjectMetadataSummary {
+  readonly packageNames: readonly string[];
 }
 
 export interface ProjectAnalysis {

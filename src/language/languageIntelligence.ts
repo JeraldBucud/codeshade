@@ -1,5 +1,6 @@
 import type { LanguageAnalysis, LanguageDocumentInput } from "./models";
 import { emptyLanguageAnalysis } from "./models";
+import { resolveLocalRelationships } from "./localRelationships";
 import { analyzeDeterministicStructure } from "./relationships";
 import { boundSymbols, findContainingSymbol } from "./symbols";
 
@@ -31,11 +32,12 @@ export class DeterministicLanguageAdapter implements LanguageProviderAdapter {
 }
 
 export class LanguageIntelligenceService {
+  private static readonly maxCacheEntries = 48;
   private readonly cache = new Map<
     string,
     { readonly version: number; readonly analysis: LanguageAnalysis }
   >();
-  private generation = 0;
+  private readonly generations = new Map<string, number>();
 
   constructor(
     private readonly adapter: LanguageProviderAdapter = new DeterministicLanguageAdapter()
@@ -68,13 +70,18 @@ export class LanguageIntelligenceService {
       };
     }
 
-    const generation = this.generation + 1;
-    this.generation = generation;
+    const generation = this.nextGeneration(document.uri);
     try {
-      const analysis = await this.adapter.analyzeDocument(document);
-      if (this.generation === generation) {
-        this.cache.set(document.uri, { version: document.version, analysis });
-        return analysis;
+      const analysis = resolveLocalRelationships(
+        await this.adapter.analyzeDocument(document),
+        document
+      );
+      if (this.generations.get(document.uri) === generation) {
+        this.setCache(document.uri, document.version, analysis);
+        return {
+          ...analysis,
+          currentSymbol: findContainingSymbol(analysis.symbols, document.cursor)
+        };
       }
       return this.getCached(document);
     } catch (error) {
@@ -89,5 +96,23 @@ export class LanguageIntelligenceService {
 
   invalidate(uri: string): void {
     this.cache.delete(uri);
+  }
+
+  private nextGeneration(uri: string): number {
+    const generation = (this.generations.get(uri) ?? 0) + 1;
+    this.generations.set(uri, generation);
+    return generation;
+  }
+
+  private setCache(uri: string, version: number, analysis: LanguageAnalysis): void {
+    this.cache.delete(uri);
+    this.cache.set(uri, { version, analysis });
+    while (this.cache.size > LanguageIntelligenceService.maxCacheEntries) {
+      const firstKey = this.cache.keys().next().value;
+      if (typeof firstKey !== "string") {
+        return;
+      }
+      this.cache.delete(firstKey);
+    }
   }
 }

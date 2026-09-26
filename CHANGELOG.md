@@ -10,6 +10,9 @@ Notable CodingSensei changes are recorded here. CodingSensei follows Semantic Ve
 - Added local extension-storage manifests under CodingSensei's VS Code global storage, keyed by the stable project ID.
 - Project identity creation is idempotent, malformed identity files are not silently overwritten, and persistence failures do not disable deterministic project analysis.
 - Learning Mode now surfaces whether persistent project identity is ready for the active project.
+- Added a versioned external structural project catalog with source/test paths, project metadata summaries and scan state; source contents are not stored in the catalog.
+- Source-file create/delete events update the cached structural index incrementally instead of forcing a full project rescan when a current index exists.
+- Added commands to inspect, rebuild and clear stored project intelligence while preserving the stable project identity.
 
 ### Branding
 

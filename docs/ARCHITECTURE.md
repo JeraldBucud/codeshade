@@ -31,11 +31,11 @@ This phase does not send project data anywhere and does not depend on any model 
 
 ## Fast Context And Cached Project Intelligence
 
-Fast editor context still updates on active editor changes, selection changes, active document edits, active document saves and active-file diagnostic changes. These events should keep Learning Mode accurate without doing expensive work.
+Fast editor context updates on selection changes, ordinary active document edits and active-file diagnostic changes. These events keep Learning Mode accurate using cached project data without structural scanning or Git subprocess refreshes. Active editor changes may refresh Git because active-file status can change, and save events refresh only volatile Git state.
 
 Project intelligence is split into a root-level structural index and an active-file projection. The structural index is cached per workspace root and contains paths, manifests, tool evidence, roots, counts and scripts. Active-file relationships are derived from that cached index, so switching between files in the same root does not call `findFiles` again.
 
-Structural analysis runs on first project load, manual refresh, active project changes, and relevant metadata/source file create/delete/change events. Cursor movement, selection changes, diagnostics and ordinary source edits use cached project intelligence. Save events refresh only volatile Git state.
+Structural analysis runs on first project load, manual refresh, active project changes, and relevant metadata/source file create/delete/change events. Cursor movement, selection changes, diagnostics and ordinary source edits use cached project intelligence without refreshing Git.
 
 Async analysis uses generation checks so stale scans cannot overwrite a newer active-project result. File watcher invalidation is rooted: changes in ignored heavy directories are skipped, and changes in a non-active workspace root invalidate that root without forcing the active Learning Mode view to rescan.
 

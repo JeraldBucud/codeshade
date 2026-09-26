@@ -20,5 +20,5 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void {
-  // No background services are started in Phase 0.
+  // No background services require shutdown.
 }

@@ -40,6 +40,7 @@ export class ProjectIntelligenceService {
   private readonly cache = new ProjectIndexCache();
   private readonly adapter: ProjectWorkspaceAdapter;
   private gitCache = new Map<string, GitProjectState>();
+  private gitGenerations = new Map<string, number>();
   private analyzing = new Set<string>();
 
   constructor(adapter: ProjectWorkspaceAdapter = createVsCodeProjectAdapter()) {
@@ -68,7 +69,7 @@ export class ProjectIntelligenceService {
 
   async analyze(
     activeEditor: ActiveEditorContext | undefined,
-    force: boolean
+    options: { readonly force: boolean; readonly refreshGit: boolean }
   ): Promise<ProjectAnalysis> {
     const root = this.adapter.getActiveWorkspaceRoot();
     if (!root) {
@@ -77,8 +78,10 @@ export class ProjectIntelligenceService {
 
     const activeFile = activeEditor?.relativePath;
     const cached = this.cache.get(root.uri);
-    if (!force && cached) {
-      const git = await this.refreshGitForRoot(root, activeFile);
+    if (!options.force && cached) {
+      const git = options.refreshGit
+        ? await this.refreshGitForRoot(root, activeFile)
+        : this.gitCache.get(root.uri);
       return this.buildAnalysis(cached.index, activeFile, git);
     }
 
@@ -94,7 +97,9 @@ export class ProjectIntelligenceService {
           : { status: "analyzing", root, message: "Analyzing project context locally." };
       }
 
-      const git = await this.refreshGitForRoot(root, activeFile);
+      const git = options.refreshGit
+        ? await this.refreshGitForRoot(root, activeFile)
+        : this.gitCache.get(root.uri);
       return this.buildAnalysis(index, activeFile, git);
     } catch (error) {
       return {
@@ -133,6 +138,7 @@ export class ProjectIntelligenceService {
   invalidateRoot(rootUri: string): void {
     this.cache.invalidate(rootUri);
     this.gitCache.delete(rootUri);
+    this.gitGenerations.set(rootUri, (this.gitGenerations.get(rootUri) ?? 0) + 1);
   }
 
   private async scanIndex(root: WorkspaceRoot): Promise<ProjectIndex> {
@@ -154,9 +160,22 @@ export class ProjectIntelligenceService {
     root: WorkspaceRoot,
     activeFile: string | undefined
   ): Promise<GitProjectState> {
+    const generation = (this.gitGenerations.get(root.uri) ?? 0) + 1;
+    this.gitGenerations.set(root.uri, generation);
     const git = await this.adapter.readGitState(root, activeFile);
-    this.gitCache.set(root.uri, git);
-    return git;
+
+    if (this.gitGenerations.get(root.uri) === generation) {
+      this.gitCache.set(root.uri, git);
+      return git;
+    }
+
+    return (
+      this.gitCache.get(root.uri) ?? {
+        available: false,
+        isRepository: false,
+        error: "A newer Git refresh is already in progress."
+      }
+    );
   }
 
   private buildAnalysis(

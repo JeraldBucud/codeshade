@@ -69,7 +69,8 @@ describe("project metadata", () => {
       { relativePath: "requirements.txt", content: "Django==5.1\npytest==8.0" },
       {
         relativePath: "pom.xml",
-        content: "<artifactId>spring-boot-starter-web</artifactId>"
+        content:
+          "<groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId><artifactId>spring-boot-maven-plugin</artifactId>"
       }
     ]);
 
@@ -79,7 +80,9 @@ describe("project metadata", () => {
       "pytest",
       "react",
       "spring-boot",
+      "spring-boot-maven-plugin",
       "spring-boot-starter",
+      "spring-boot-starter-web",
       "vite"
     ]);
   });

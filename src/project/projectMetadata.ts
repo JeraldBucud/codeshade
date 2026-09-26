@@ -200,10 +200,7 @@ function collectKnownFrameworkNames(text: string): readonly string[] {
     }
   }
 
-  if (
-    normalized.includes("org.springframework.boot") ||
-    normalized.includes("spring-boot-")
-  ) {
+  if (normalized.includes("org.springframework.boot") || normalized.includes("spring-boot-")) {
     names.add("spring-boot");
   }
 

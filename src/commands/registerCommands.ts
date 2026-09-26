@@ -163,6 +163,7 @@ export class CodeShadeController implements vscode.Disposable {
     this.publish();
     switch (mode) {
       case "fast":
+        this.reconcileLanguageWithCachedProject();
         return;
       case "refresh-git":
         this.debouncedLanguageRefresh.cancel();
@@ -193,6 +194,7 @@ export class CodeShadeController implements vscode.Disposable {
     const contextAtStart = this.currentContext;
     const analysis = await this.projectService.analyze(contextAtStart.activeEditor, options);
     if (this.currentContext !== contextAtStart) {
+      this.refresh("fast");
       return;
     }
 
@@ -266,15 +268,18 @@ export class CodeShadeController implements vscode.Disposable {
   }
 
   private reconcileLanguageAfterProjectReady(contextAtStart: LearningContext): void {
-    if (
-      this.currentContext !== contextAtStart ||
-      this.projectAnalysis?.status !== "ready" ||
-      !this.projectAnalysis.snapshot
-    ) {
+    if (this.currentContext !== contextAtStart) {
+      return;
+    }
+    this.reconcileLanguageWithCachedProject();
+  }
+
+  private reconcileLanguageWithCachedProject(): void {
+    if (this.projectAnalysis?.status !== "ready" || !this.projectAnalysis.snapshot) {
       return;
     }
 
-    const document = this.collectLanguageDocument();
+    const document = this.collectLanguageProjectIdentity();
     const nextKey = createLanguageProjectContextKey({
       document,
       snapshot: this.projectAnalysis.snapshot
@@ -345,6 +350,23 @@ export class CodeShadeController implements vscode.Disposable {
       languageAnalysis: this.languageAnalysis,
       frameworkDetections: this.frameworkDetections
     });
+  }
+
+  private collectLanguageProjectIdentity():
+    Pick<LanguageDocumentInput, "uri" | "projectRelativePath"> | undefined {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document.uri.scheme === "untitled") {
+      return undefined;
+    }
+
+    const relativePath = vscode.workspace.asRelativePath(editor.document.uri, false);
+    const projectRoot = this.projectAnalysis?.snapshot?.root;
+    return {
+      uri: editor.document.uri.toString(),
+      projectRelativePath: projectRoot
+        ? stripProjectPrefix(relativePath, projectRoot.relativePath)
+        : relativePath
+    };
   }
 
   private collectLanguageDocumentIdentity():

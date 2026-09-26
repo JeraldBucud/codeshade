@@ -316,6 +316,47 @@ describe("next step service", () => {
     expect(step.detail).toContain("Header");
   });
 
+  it("uses a resolved local import when no stronger code relationship exists", () => {
+    const service = new NextStepService();
+    const step = service.choose(
+      {
+        status: "ready",
+        workspace,
+        project: { activeFileIsTest: false },
+        activeEditor: {
+          fileName: "EventCompletionPage.jsx",
+          relativePath: "src/pages/EventCompletionPage.jsx",
+          languageId: "javascriptreact",
+          isUntitled: false,
+          isDirty: false,
+          lineCount: 80,
+          diagnostics: [],
+          todoMarkers: []
+        }
+      },
+      undefined,
+      {
+        ...languageAnalysis,
+        file: "src/pages/EventCompletionPage.jsx",
+        imports: [
+          {
+            type: "import",
+            target: "../api/apiClient",
+            targetFile: "src/api/apiClient.js",
+            confidence: "high",
+            reason:
+              "The active file imports a local project module. CodeShade resolved it to a known local project file."
+          }
+        ],
+        relationships: []
+      },
+      [reactDetection]
+    );
+
+    expect(step.id).toBe("inspect-import");
+    expect(step.detail).toContain("src/api/apiClient.js");
+  });
+
   it("keeps active diagnostics above framework and language guidance", () => {
     const service = new NextStepService();
     const step = service.choose(

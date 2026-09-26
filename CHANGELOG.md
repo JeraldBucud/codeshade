@@ -4,6 +4,13 @@ Notable CodingSensei changes are recorded here. CodingSensei follows Semantic Ve
 
 ## [Unreleased]
 
+### Persistent Project Intelligence
+
+- Added the Phase 3 project-identity foundation with a versioned `.codingsensei/project.json` file and stable UUID.
+- Added local extension-storage manifests under CodingSensei's VS Code global storage, keyed by the stable project ID.
+- Project identity creation is idempotent, malformed identity files are not silently overwritten, and persistence failures do not disable deterministic project analysis.
+- Learning Mode now surfaces whether persistent project identity is ready for the active project.
+
 ### Branding
 
 - Renamed the project from CodeShade to CodingSensei before VS Code Marketplace publication.

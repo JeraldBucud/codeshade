@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/brand/github/codingsensei-github-repository-banner.png" alt="CodingSensei — Learn to code by coding." width="100%" />
+</p>
+
 # CodingSensei
 
 **Learn to code by coding.**

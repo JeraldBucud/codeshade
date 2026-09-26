@@ -104,6 +104,12 @@ Open this repository in VS Code, press F5 and choose `Run CodeShade Extension`. 
 - `CodeShade: Show Next Hint`
 - `CodeShade: Reset Hints`
 
+## Versioning and Releases
+
+CodeShade follows Semantic Versioning. The current development release after Phase 1 is `0.2.0`.
+
+See [CHANGELOG.md](CHANGELOG.md) for milestone history and [docs/RELEASING.md](docs/RELEASING.md) for the release process.
+
 ## Project Status
 
 This project is not published to the VS Code Marketplace. The `publisher` value in `package.json` is a conservative placeholder for local extension development and packaging metadata.

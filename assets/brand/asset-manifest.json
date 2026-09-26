@@ -1,0 +1,25 @@
+{
+  "brand": "CodingSensei",
+  "tagline": "Learn to code by coding.",
+  "palette": {
+    "inkCharcoal": "#15171C",
+    "copper": "#C96A2B",
+    "amber": "#E0A84B",
+    "sand": "#F2E7D5"
+  },
+  "expectedAssets": [
+    "github/codingsensei-github-repository-banner.png",
+    "github/codingsensei-github-profile-image.png",
+    "social/codingsensei-social-preview-og.png",
+    "vscode/codingsensei-vscode-marketplace-banner.png",
+    "docs/codingsensei-documentation-header.png",
+    "icons/codingsensei-app-icon.png",
+    "vscode/codingsensei-activitybar-light.png",
+    "vscode/codingsensei-activitybar-high-contrast.png",
+    "vscode/codingsensei-activitybar-monochrome.png",
+    "logos/codingsensei-horizontal-dark.png",
+    "logos/codingsensei-horizontal-light.png",
+    "logos/codingsensei-vertical-dark.png",
+    "logos/codingsensei-vertical-light.png"
+  ]
+}

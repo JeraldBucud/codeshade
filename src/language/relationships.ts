@@ -17,10 +17,19 @@ export function analyzeDeterministicStructure(input: {
   const relationships: LanguageRelationship[] = [];
   const entryPointSignals: string[] = [];
 
+  const relationshipContext = {
+    jsx: isJsxDocument(input.languageId, input.fileName),
+    java: input.languageId === "java" || /\.java$/i.test(input.fileName),
+    javascriptFamily:
+      ["javascript", "javascriptreact", "typescript", "typescriptreact"].includes(
+        input.languageId
+      ) || /\.(?:[cm]?[jt]sx?)$/i.test(input.fileName)
+  };
+
   lines.forEach((line, index) => {
     collectImports(line, imports);
     collectSymbols(line, index, symbols);
-    collectRelationships(line, relationships);
+    collectRelationships(line, relationships, relationshipContext);
     if (/if\s*\(?(?:__name__\s*==\s*["']__main__["']|require\.main\s*===\s*module)\)?/.test(line)) {
       entryPointSignals.push("possible main/module entry point");
     }
@@ -85,8 +94,12 @@ function collectSymbols(line: string, index: number, symbols: LanguageSymbol[]):
   }
 }
 
-function collectRelationships(line: string, relationships: LanguageRelationship[]): void {
-  const renderMatch = /<([A-Z][A-Za-z0-9_]*)\b/.exec(line);
+function collectRelationships(
+  line: string,
+  relationships: LanguageRelationship[],
+  context: { readonly jsx: boolean; readonly java: boolean; readonly javascriptFamily: boolean }
+): void {
+  const renderMatch = context.jsx ? /<([A-Z][A-Za-z0-9_]*)\b/.exec(line) : undefined;
   if (renderMatch?.[1]) {
     relationships.push({
       type: "renders",
@@ -96,10 +109,11 @@ function collectRelationships(line: string, relationships: LanguageRelationship[
       reason: "A JSX element with a component-style name appears in the active file."
     });
   }
-  const serviceMatch =
-    /(?:private|public|protected)?\s+(?:final\s+)?([A-Z][A-Za-z0-9_]*Service)\s+([a-z][A-Za-z0-9_]*)/.exec(
-      line
-    );
+  const serviceMatch = context.java
+    ? /(?:private|public|protected)?\s+(?:final\s+)?([A-Z][A-Za-z0-9_]*Service)\s+([a-z][A-Za-z0-9_]*)/.exec(
+        line
+      )
+    : undefined;
   if (serviceMatch?.[1]) {
     relationships.push({
       type: "service-dependency",
@@ -109,7 +123,9 @@ function collectRelationships(line: string, relationships: LanguageRelationship[
       reason: "A service-typed field or dependency appears in the active file."
     });
   }
-  const routeMatch = /\b(?:app|router)\.(get|post|put|delete|patch|use)\s*\(/.exec(line);
+  const routeMatch = context.javascriptFamily
+    ? /\b(?:app|router)\.(get|post|put|delete|patch|use)\s*\(/.exec(line)
+    : undefined;
   if (routeMatch?.[1]) {
     relationships.push({
       type: "route-handler",
@@ -118,6 +134,14 @@ function collectRelationships(line: string, relationships: LanguageRelationship[
       reason: "The active file declares an Express-style route."
     });
   }
+}
+
+function isJsxDocument(languageId: string, fileName: string): boolean {
+  return (
+    languageId === "javascriptreact" ||
+    languageId === "typescriptreact" ||
+    /\.(?:jsx|tsx)$/i.test(fileName)
+  );
 }
 
 function lineRange(line: number, text: string): CodeRange {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { WorkspaceRoot } from "../src/core/models";
+import { buildProjectIndex } from "../src/project/projectScanner";
 import {
   ProjectPersistenceService,
   type ProjectPersistenceAdapter
@@ -16,8 +17,10 @@ const root: WorkspaceRoot = {
 function createMemoryAdapter() {
   const identities = new Map<string, string>();
   const manifests = new Map<string, string>();
+  const catalogs = new Map<string, string>();
   let identityWrites = 0;
   let manifestWrites = 0;
+  let catalogWrites = 0;
 
   const adapter: ProjectPersistenceAdapter = {
     readProjectIdentity: (projectRoot) => Promise.resolve(identities.get(projectRoot.uri)),
@@ -30,6 +33,12 @@ function createMemoryAdapter() {
       manifestWrites += 1;
       manifests.set(id, content);
       return Promise.resolve();
+    },
+    readProjectCatalog: (id) => Promise.resolve(catalogs.get(id)),
+    writeProjectCatalog: (id, content) => {
+      catalogWrites += 1;
+      catalogs.set(id, content);
+      return Promise.resolve();
     }
   };
 
@@ -37,8 +46,10 @@ function createMemoryAdapter() {
     adapter,
     identities,
     manifests,
+    catalogs,
     identityWrites: () => identityWrites,
-    manifestWrites: () => manifestWrites
+    manifestWrites: () => manifestWrites,
+    catalogWrites: () => catalogWrites
   };
 }
 
@@ -101,6 +112,37 @@ describe("project persistence service", () => {
       projectId,
       lastOpenedAt: "2026-09-27T01:00:00.000Z",
       lastKnownRootUri: movedRoot.uri
+    });
+  });
+
+  it("persists and reloads a structural project catalog across service instances", async () => {
+    const memory = createMemoryAdapter();
+    const service = new ProjectPersistenceService(memory.adapter, {
+      createId: () => projectId,
+      now: () => new Date("2026-09-26T14:30:00.000Z")
+    });
+    const index = buildProjectIndex({
+      root,
+      sourceFiles: [{ relativePath: "src/app.ts" }, { relativePath: "src/app.test.ts" }],
+      metadataFiles: [{ relativePath: "package.json", content: "{}" }],
+      scanLimit: 2500,
+      scanTruncated: false
+    });
+
+    expect(await service.saveProjectCatalog(root, index)).toBe(true);
+    expect(memory.catalogWrites()).toBe(1);
+
+    const reopened = new ProjectPersistenceService(memory.adapter, {
+      now: () => new Date("2026-09-27T01:00:00.000Z")
+    });
+    const catalog = await reopened.loadProjectCatalog(root);
+
+    expect(catalog).toMatchObject({
+      schemaVersion: 1,
+      projectId,
+      sourceFileCount: 1,
+      testFileCount: 1,
+      codeFiles: ["src/app.test.ts", "src/app.ts"]
     });
   });
 

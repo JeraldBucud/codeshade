@@ -21,7 +21,7 @@ import { DebouncedAction } from "../utils/debouncedAction";
 
 type RefreshMode = "fast" | "ensure-project" | "refresh-git" | "force-project";
 
-export class CodeShadeController implements vscode.Disposable {
+export class CodingSenseiController implements vscode.Disposable {
   private static readonly languageDebounceMs = 350;
   private readonly disposables: vscode.Disposable[] = [];
   private currentContext: LearningContext | undefined;
@@ -33,7 +33,7 @@ export class CodeShadeController implements vscode.Disposable {
   private languageProjectContextKey: string | undefined;
   private readonly languageService = new LanguageIntelligenceService(new VsCodeLanguageAdapter());
   private readonly debouncedLanguageRefresh = new DebouncedAction(
-    CodeShadeController.languageDebounceMs,
+    CodingSenseiController.languageDebounceMs,
     () => {
       void this.refreshLanguage(false);
     }
@@ -62,18 +62,18 @@ export class CodeShadeController implements vscode.Disposable {
         LearningModeViewProvider.viewType,
         this.viewProvider
       ),
-      vscode.commands.registerCommand("codeshade.openLearningMode", async () => {
-        await vscode.commands.executeCommand("workbench.view.extension.codeshade");
+      vscode.commands.registerCommand("codingsensei.openLearningMode", async () => {
+        await vscode.commands.executeCommand("workbench.view.extension.codingsensei");
         await vscode.commands.executeCommand(`${LearningModeViewProvider.viewType}.focus`);
         this.refresh("ensure-project");
       }),
-      vscode.commands.registerCommand("codeshade.refreshLearningContext", () => {
+      vscode.commands.registerCommand("codingsensei.refreshLearningContext", () => {
         this.refresh("force-project");
       }),
-      vscode.commands.registerCommand("codeshade.showNextHint", () => {
+      vscode.commands.registerCommand("codingsensei.showNextHint", () => {
         this.showNextHint();
       }),
-      vscode.commands.registerCommand("codeshade.resetHints", () => {
+      vscode.commands.registerCommand("codingsensei.resetHints", () => {
         this.resetHints();
       }),
       vscode.window.onDidChangeActiveTextEditor(() => {

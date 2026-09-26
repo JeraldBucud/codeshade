@@ -7,6 +7,7 @@ import { projectIdentityDirectoryName, projectIdentityFileName } from "./project
 import type { ProjectPersistenceAdapter } from "./projectPersistence";
 
 const projectManifestFileName = "project.json";
+const projectCatalogFileName = "catalog.json";
 
 export function createVsCodeProjectPersistenceAdapter(
   globalStorageUri: vscode.Uri
@@ -32,6 +33,22 @@ export function createVsCodeProjectPersistenceAdapter(
       await vscode.workspace.fs.createDirectory(directory);
       await vscode.workspace.fs.writeFile(
         vscode.Uri.joinPath(directory, projectManifestFileName),
+        encoder.encode(content)
+      );
+    },
+    readProjectCatalog: async (projectId) =>
+      readTextIfExists(
+        vscode.Uri.joinPath(
+          projectStorageDirectory(globalStorageUri, projectId),
+          projectCatalogFileName
+        ),
+        decoder
+      ),
+    writeProjectCatalog: async (projectId, content) => {
+      const directory = projectStorageDirectory(globalStorageUri, projectId);
+      await vscode.workspace.fs.createDirectory(directory);
+      await vscode.workspace.fs.writeFile(
+        vscode.Uri.joinPath(directory, projectCatalogFileName),
         encoder.encode(content)
       );
     }

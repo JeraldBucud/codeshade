@@ -1,4 +1,4 @@
-# CodeShade Roadmap
+# CodingSensei Roadmap
 
 This roadmap describes broad direction, not immutable architecture.
 
@@ -20,8 +20,8 @@ Next. Build more sophisticated learning state, hint progression, concept trackin
 
 ## Phase 4 - Embedded Local Intelligence (`0.5.0`)
 
-Add optional embedded lightweight GGUF coding-model support through an in-process local runtime. CodeShade should not require Ollama, LM Studio or a separately running model server.
+Add optional embedded lightweight GGUF coding-model support through an in-process local runtime. CodingSensei should not require Ollama, LM Studio or a separately running model server.
 
 ## Phase 5 - Extended Integrations
 
-Explore optional integration points for external or local agent systems such as Mika and Obsidian while keeping CodeShade standalone and local-first by default.
+Explore optional integration points for external or local agent systems such as Mika and Obsidian while keeping CodingSensei standalone and local-first by default.

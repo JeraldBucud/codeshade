@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { WorkspaceRoot } from "../src/core/models";
+import type { LanguageAnalysis } from "../src/language/models";
 import { buildProjectIndex } from "../src/project/projectScanner";
 import {
   ProjectPersistenceService,
@@ -168,6 +169,51 @@ describe("project persistence service", () => {
       testFileCount: 1,
       codeFiles: ["src/app.test.ts", "src/app.ts"]
     });
+  });
+
+  it("persists file knowledge without storing source contents", async () => {
+    const memory = createMemoryAdapter();
+    const service = new ProjectPersistenceService(memory.adapter, {
+      createId: () => projectId,
+      now: () => new Date("2026-09-27T02:00:00.000Z")
+    });
+    const analysis: LanguageAnalysis = {
+      status: "available",
+      file: "src/app.ts",
+      languageId: "typescript",
+      source: "deterministic",
+      symbols: [],
+      imports: [],
+      relationships: [],
+      entryPointSignals: [],
+      truncated: false
+    };
+    const sourceText = "const secretLookingValue = 42;";
+
+    expect(
+      await service.saveFileKnowledge(
+        root,
+        {
+          fileName: "app.ts",
+          projectRelativePath: "src/app.ts",
+          languageId: "typescript",
+          text: sourceText
+        },
+        analysis,
+        []
+      )
+    ).toBe(true);
+
+    const loaded = await service.loadFileKnowledge(root, "src/app.ts");
+    expect(loaded).toMatchObject({
+      projectId,
+      relativePath: "src/app.ts",
+      languageId: "typescript"
+    });
+    expect(JSON.stringify([...memory.knowledge.values()])).not.toContain(sourceText);
+
+    expect(await service.deleteFileKnowledge(root, "src/app.ts")).toBe(true);
+    expect(await service.loadFileKnowledge(root, "src/app.ts")).toBeUndefined();
   });
 
   it("clears external project data without deleting the stable project identity", async () => {

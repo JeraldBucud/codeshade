@@ -10,6 +10,7 @@ import type {
   SelectionContext
 } from "../core/models";
 import type { FrameworkDetection } from "../framework/models";
+import { selectLearningRelationship } from "../language/localRelationships";
 import type { LanguageAnalysis } from "../language/models";
 import { getLanguageDisplayName, isSupportedLanguage } from "../learning/languageProfiles";
 
@@ -293,7 +294,7 @@ function renderProject(
     frameworkDetections.length > 0
       ? frameworkDetections.map(formatFrameworkDetection).join(", ")
       : "No supported framework evidence detected";
-  const codeRelationship = languageAnalysis?.relationships[0];
+  const codeRelationship = selectLearningRelationship(languageAnalysis, languageAnalysis?.file);
 
   return `<div class="meta">
     <div class="row">

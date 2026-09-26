@@ -76,6 +76,15 @@ export class CodingSenseiController implements vscode.Disposable {
       vscode.commands.registerCommand("codingsensei.resetHints", () => {
         this.resetHints();
       }),
+      vscode.commands.registerCommand("codingsensei.showProjectIntelligence", () => {
+        this.showProjectIntelligence();
+      }),
+      vscode.commands.registerCommand("codingsensei.rebuildProjectIntelligence", () => {
+        this.refresh("force-project");
+      }),
+      vscode.commands.registerCommand("codingsensei.clearProjectIntelligence", async () => {
+        await this.clearProjectIntelligence();
+      }),
       vscode.window.onDidChangeActiveTextEditor(() => {
         this.refresh("ensure-project");
       }),
@@ -331,6 +340,58 @@ export class CodingSenseiController implements vscode.Disposable {
       (changedRoot && isPathInsideProject(activeFile, changedRoot))
     ) {
       this.refresh("force-project");
+    }
+  }
+
+  private showProjectIntelligence(): void {
+    const analysis = this.projectAnalysis;
+    if (analysis?.status !== "ready" || !analysis.snapshot) {
+      void vscode.window.showInformationMessage(
+        "CodingSensei project intelligence is not ready yet."
+      );
+      return;
+    }
+
+    const persistence = analysis.persistence;
+    const persistenceLabel =
+      persistence?.status === "ready" && persistence.projectId
+        ? `persistent · ${persistence.projectId.slice(0, 8)}`
+        : persistence?.status === "unavailable"
+          ? "persistence unavailable"
+          : "in-memory only";
+    const snapshot = analysis.snapshot;
+    void vscode.window.showInformationMessage(
+      `CodingSensei: ${snapshot.root.name} · ${persistenceLabel} · ${String(snapshot.sourceFileCount)} source · ${String(snapshot.testFileCount)} test`
+    );
+  }
+
+  private async clearProjectIntelligence(): Promise<void> {
+    if (!this.currentContext) {
+      return;
+    }
+
+    const confirmation = await vscode.window.showWarningMessage(
+      "Clear CodingSensei's stored project intelligence? The stable .codingsensei project identity will be kept.",
+      { modal: true },
+      "Clear Stored Intelligence"
+    );
+    if (confirmation !== "Clear Stored Intelligence") {
+      return;
+    }
+
+    const cleared = await this.projectService.clearPersistentData(
+      this.currentContext.activeEditor
+    );
+    if (cleared) {
+      void vscode.window.showInformationMessage(
+        "CodingSensei stored project intelligence was cleared. It will be rebuilt when needed."
+      );
+      this.projectAnalysis = this.projectService.getCached(this.currentContext.activeEditor);
+      this.publish();
+    } else {
+      void vscode.window.showWarningMessage(
+        "CodingSensei could not clear stored project intelligence for the active project."
+      );
     }
   }
 

@@ -1,14 +1,14 @@
-# CodeShade
+# CodingSensei
 
 **Learn to code by coding.**
 
-CodeShade is an open-source, local-first VS Code learning companion that helps you learn programming while working inside real projects.
+CodingSensei is an open-source, local-first VS Code learning companion that helps you learn programming while working inside real projects.
 
-It is not intended to be another Copilot-style code generator. CodeShade focuses on contextual guidance, progressive hints, explanations, next-step suggestions and learning-oriented feedback that encourage you to write and understand the code yourself.
+It is not intended to be another Copilot-style code generator. CodingSensei focuses on contextual guidance, progressive hints, explanations, next-step suggestions and learning-oriented feedback that encourage you to write and understand the code yourself.
 
 ## Status
 
-CodeShade is in early development. Phase 0 established the extension foundation, Phase 1 added deterministic project intelligence, and Phase 2 added native-first language and framework intelligence without AI.
+CodingSensei is in early development. Phase 0 established the extension foundation, Phase 1 added deterministic project intelligence, and Phase 2 added native-first language and framework intelligence without AI.
 
 ## Philosophy
 
@@ -19,13 +19,13 @@ CodeShade is in early development. Phase 0 established the extension foundation,
 
 ## Local-First Privacy
 
-CodeShade does not include telemetry, analytics, cloud APIs, authentication, API keys, model downloads or hidden background communication. Code and project context stay inside VS Code.
+CodingSensei does not include telemetry, analytics, cloud APIs, authentication, API keys, model downloads or hidden background communication. Code and project context stay inside VS Code.
 
 Future optional intelligence providers must not become required for the core extension to work.
 
 ## Initial Features
 
-- CodeShade Activity Bar container.
+- CodingSensei Activity Bar container.
 - Learning Mode view for the active workspace and editor.
 - Current project, file and language context.
 - Selection summary when code is selected.
@@ -49,17 +49,17 @@ Phase 0 includes lightweight detection profiles for:
 - Python
 - Java
 
-Phase 1 detects ecosystems and build/package tools. Phase 2 adds native-first symbol, definition and reference awareness plus deterministic framework signals for common React, Express, Django and Spring Boot patterns. CodeShade still does not perform full AST analysis, add Tree-sitter or require external language servers.
+Phase 1 detects ecosystems and build/package tools. Phase 2 adds native-first symbol, definition and reference awareness plus deterministic framework signals for common React, Express, Django and Spring Boot patterns. CodingSensei still does not perform full AST analysis, add Tree-sitter or require external language servers.
 
 ## Project Intelligence
 
-CodeShade starts from the VS Code workspace folder that contains the active file, then resolves the active software project by walking upward from that file to the workspace boundary and looking for strong project markers such as `package.json`, `pyproject.toml`, `pom.xml` or `build.gradle`. The nearest strong marker wins, so nested projects such as `workspace/frontend` or `workspace/EBusinessSystem` are treated as the active project instead of the outer workspace folder.
+CodingSensei starts from the VS Code workspace folder that contains the active file, then resolves the active software project by walking upward from that file to the workspace boundary and looking for strong project markers such as `package.json`, `pyproject.toml`, `pom.xml` or `build.gradle`. The nearest strong marker wins, so nested projects such as `workspace/frontend` or `workspace/EBusinessSystem` are treated as the active project instead of the outer workspace folder.
 
-Project discovery is location-agnostic. It does not depend on whether the workspace lives on Desktop, OneDrive, another drive or a Unix home directory. It also stays inside the folder the user opened in VS Code; CodeShade does not scan the whole computer, mounted drives or unrelated home folders.
+Project discovery is location-agnostic. It does not depend on whether the workspace lives on Desktop, OneDrive, another drive or a Unix home directory. It also stays inside the folder the user opened in VS Code; CodingSensei does not scan the whole computer, mounted drives or unrelated home folders.
 
 Project analysis keeps a structural index cached per resolved project root. Cursor movement, selection changes, diagnostics and ordinary text edits refresh the fast editor context and derive active-file relationships from the cached index without rescanning the project or refreshing Git. Manual refresh and relevant source/metadata file changes invalidate the affected project root. In multi-root workspaces, changes outside the active project do not force the active Learning Mode view to rescan.
 
-CodeShade discovers critical metadata files separately from the bounded source-file scan, so lock files and build wrappers such as `yarn.lock`, `gradlew` and `mvnw` can still be detected when source scanning is truncated. Local Git state is refreshed independently from structural project scanning, and the Git repository root may be above the active project root. CodeShade does not run package scripts, tests, builds, hooks or project code.
+CodingSensei discovers critical metadata files separately from the bounded source-file scan, so lock files and build wrappers such as `yarn.lock`, `gradlew` and `mvnw` can still be detected when source scanning is truncated. Local Git state is refreshed independently from structural project scanning, and the Git repository root may be above the active project root. CodingSensei does not run package scripts, tests, builds, hooks or project code.
 
 ## Development Setup
 
@@ -97,18 +97,18 @@ pnpm format:check
 
 ## Launching the Extension
 
-Open this repository in VS Code, press F5 and choose `Run CodeShade Extension`. This starts an Extension Development Host with CodeShade installed from the local workspace.
+Open this repository in VS Code, press F5 and choose `Run CodingSensei Extension`. This starts an Extension Development Host with CodingSensei installed from the local workspace.
 
 ## Commands
 
-- `CodeShade: Open Learning Mode`
-- `CodeShade: Refresh Learning Context`
-- `CodeShade: Show Next Hint`
-- `CodeShade: Reset Hints`
+- `CodingSensei: Open Learning Mode`
+- `CodingSensei: Refresh Learning Context`
+- `CodingSensei: Show Next Hint`
+- `CodingSensei: Reset Hints`
 
 ## Versioning and Releases
 
-CodeShade follows Semantic Versioning. The current release is `0.3.0`, representing Phase 2 - Language & Framework Intelligence.
+CodingSensei follows Semantic Versioning. The current release is `0.3.0`, representing Phase 2 - Language & Framework Intelligence.
 
 See [CHANGELOG.md](CHANGELOG.md) for milestone history and [docs/RELEASING.md](docs/RELEASING.md) for the release process.
 
@@ -118,4 +118,4 @@ This project is not published to the VS Code Marketplace. The `publisher` value 
 
 ## License
 
-CodeShade is licensed under the Apache License 2.0. See [LICENSE](LICENSE).
+CodingSensei is licensed under the Apache License 2.0. See [LICENSE](LICENSE).

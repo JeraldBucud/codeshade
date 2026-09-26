@@ -16,7 +16,7 @@ Future changes will be recorded here.
 
 ### Language & Framework Intelligence
 
-Phase 2 adds deterministic language and framework understanding on top of the project-intelligence foundation while keeping CodingSensei local-first and model-free.
+Phase 2 adds deterministic language and framework understanding on top of the project-intelligence foundation while keeping CodeShade local-first and model-free.
 
 Added:
 
@@ -35,13 +35,13 @@ Correctness work includes language-scoped relationship heuristics, filtering sta
 
 Manual validation covered real nested React and Spring Boot projects, including frontend/backend switching, active-symbol updates, resolved local imports and Spring service-role detection.
 
-CodingSensei remains local-first: no telemetry, cloud API, account, external AI service, LLM, model download, Tree-sitter dependency or project code execution is required.
+CodeShade remains local-first: no telemetry, cloud API, account, external AI service, LLM, model download, Tree-sitter dependency or project code execution is required.
 
 ## [0.2.0] - 2026-09-26
 
 ### Deterministic Project Intelligence
 
-Phase 1 moved CodingSensei from active-editor context into deterministic, local project understanding while preserving the product's local-first learning philosophy.
+Phase 1 moved CodeShade from active-editor context into deterministic, local project understanding while preserving the product's local-first learning philosophy.
 
 Added:
 
@@ -60,18 +60,18 @@ Added:
 
 Correctness and performance work included safer cache invalidation, no Git subprocesses on fast editor events, NUL-delimited Git status parsing, Git-root/project-root path handling, and preservation of script-free Learning Mode rendering.
 
-CodingSensei remains local-first: no telemetry, cloud API, account, external AI service, LLM, model download or project code execution is required.
+CodeShade remains local-first: no telemetry, cloud API, account, external AI service, LLM, model download or project code execution is required.
 
 ## [0.1.0] - 2026-09-25
 
 ### Extension Foundation
 
-Phase 0 established CodingSensei as a real VS Code extension and created the initial local-first learning experience.
+Phase 0 established CodeShade as a real VS Code extension and created the initial local-first learning experience.
 
 Added:
 
 - Initial VS Code extension foundation.
-- CodingSensei Activity Bar container.
+- CodeShade Activity Bar container.
 - Learning Mode view.
 - Active workspace, file and language context.
 - Active-file diagnostics in the learning context.

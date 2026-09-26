@@ -38,5 +38,11 @@ jobs:
       - name: Check formatting
         run: pnpm format:check
 
+      - name: Show formatting diff
+        if: failure()
+        run: |
+          pnpm exec prettier --write src/commands/registerCommands.ts
+          git diff -- src/commands/registerCommands.ts
+
       - name: Test
         run: pnpm test

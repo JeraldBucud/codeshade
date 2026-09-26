@@ -99,6 +99,61 @@ describe("language intelligence", () => {
     expect(structure.entryPointSignals).toContain("Java main method");
   });
 
+  it("does not mistake Java generic types for JSX renders", () => {
+    const structure = analyzeDeterministicStructure({
+      fileName: "ReportService.java",
+      languageId: "java",
+      text: "class ReportService {\n List<Sale> sales;\n private final EmailService emailService;\n}"
+    });
+
+    expect(structure.relationships).not.toContainEqual(
+      expect.objectContaining({ type: "renders", target: "Sale" })
+    );
+    expect(structure.relationships).toContainEqual(
+      expect.objectContaining({ type: "service-dependency", target: "EmailService" })
+    );
+  });
+
+  it("keeps JSX render relationships scoped to JSX and TSX documents", () => {
+    const tsx = analyzeDeterministicStructure({
+      fileName: "App.tsx",
+      languageId: "typescriptreact",
+      text: "export function App() { return <LoginForm />; }"
+    });
+    const jsx = analyzeDeterministicStructure({
+      fileName: "App.jsx",
+      languageId: "javascriptreact",
+      text: "export function App() { return <LoginForm />; }"
+    });
+
+    expect(tsx.relationships).toContainEqual(
+      expect.objectContaining({ type: "renders", target: "LoginForm" })
+    );
+    expect(jsx.relationships).toContainEqual(
+      expect.objectContaining({ type: "renders", target: "LoginForm" })
+    );
+  });
+
+  it("keeps Express route relationships in JavaScript-family documents only", () => {
+    const javascript = analyzeDeterministicStructure({
+      fileName: "routes.js",
+      languageId: "javascript",
+      text: "router.get('/users', handler);"
+    });
+    const java = analyzeDeterministicStructure({
+      fileName: "Routes.java",
+      languageId: "java",
+      text: "router.get('/users', handler);"
+    });
+
+    expect(javascript.relationships).toContainEqual(
+      expect.objectContaining({ type: "route-handler", target: "GET route" })
+    );
+    expect(java.relationships).not.toContainEqual(
+      expect.objectContaining({ type: "route-handler" })
+    );
+  });
+
   it("resolves Java service dependencies when one known local candidate exists", async () => {
     const service = new LanguageIntelligenceService();
     const analysis = await service.analyze(

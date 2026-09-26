@@ -18,7 +18,7 @@ Complete. Added native-first active-file symbol awareness, bounded definition/re
 
 ### Phase 3 — Persistent Project Intelligence (`0.4.0`)
 
-In progress. The first checkpoint establishes a versioned stable project identity in `.codingsensei/project.json` plus project-specific local extension storage. Later checkpoints add persistent file/symbol records, incremental indexing, background updates and intelligence-management commands.
+In progress. Completed foundations now include a versioned stable project identity in `.codingsensei/project.json`, project-specific local extension storage, a persistent structural project catalog, incremental source create/delete updates, and inspect/rebuild/clear management commands. Remaining Phase 3 work deepens changed-file metadata, persistent symbol/relationship records and background/idle indexing.
 
 ---
 

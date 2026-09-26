@@ -4,19 +4,32 @@ Notable CodeShade changes are recorded here. CodeShade follows Semantic Versioni
 
 ## [Unreleased]
 
+Future changes will be recorded here.
+
+## [0.3.0] - 2026-09-26
+
 ### Language & Framework Intelligence
 
-Added in-progress Phase 2 foundations:
+Phase 2 adds deterministic language and framework understanding on top of the project-intelligence foundation while keeping CodeShade local-first and model-free.
+
+Added:
 
 - Native-first active-document symbol analysis using VS Code language providers when available.
-- Focused VS Code definition/reference lookups for bounded local active-symbol relationships.
-- Bounded deterministic fallback parsing for simple symbols, imports, entry points and local code relationships.
-- Conservative local relationship resolution for project imports and Java service-style dependencies.
-- Evidence-based framework signals for React, Express, Django and Spring Boot using active-file signals plus bounded metadata summaries.
-- Language and framework signals in Learning Mode and next-step guidance without running project code.
-- Cached document-version language analysis with debounced edit refreshes so fast editor events stay cheap.
+- Focused, bounded VS Code definition and reference lookups for the active symbol.
+- Deterministic fallback analysis for simple symbols, imports, entry points and local code relationships.
+- Current-symbol tracking that stays responsive during cursor movement by reusing cached analysis.
+- Conservative local relationship resolution for project imports, rendered components and Java service-style dependencies.
+- Evidence-based framework signals and roles for React, Express, Django and Spring Boot.
+- Framework detection that combines active-file evidence with bounded project metadata rather than relying on weak filename or annotation guesses.
+- Resolved local-import guidance in Learning Mode and deterministic next-step suggestions.
+- Debounced document analysis, bounded caches and stale-result protection so fast editor events stay cheap.
+- Project/language reconciliation when switching between nested projects such as frontend and backend applications.
 
-No version bump or formal release tag has been created for these unreleased changes.
+Correctness work includes language-scoped relationship heuristics, filtering stale provider-derived relationships, avoiding same-file definition suggestions, supporting modern React JSX without an explicit React import, and preserving Spring Boot metadata through the project-analysis pipeline.
+
+Manual validation covered real nested React and Spring Boot projects, including frontend/backend switching, active-symbol updates, resolved local imports and Spring service-role detection.
+
+CodeShade remains local-first: no telemetry, cloud API, account, external AI service, LLM, model download, Tree-sitter dependency or project code execution is required.
 
 ## [0.2.0] - 2026-09-26
 

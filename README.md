@@ -8,7 +8,7 @@ It is not intended to be another Copilot-style code generator. CodeShade focuses
 
 ## Status
 
-CodeShade is in early development. Phase 0 established the extension foundation, Phase 1 added deterministic project intelligence, and Phase 2 is adding native-first language and framework intelligence without AI.
+CodeShade is in early development. Phase 0 established the extension foundation, Phase 1 added deterministic project intelligence, and Phase 2 added native-first language and framework intelligence without AI.
 
 ## Philosophy
 
@@ -108,9 +108,9 @@ Open this repository in VS Code, press F5 and choose `Run CodeShade Extension`. 
 
 ## Versioning and Releases
 
-CodeShade follows Semantic Versioning. The current development release after Phase 1 is `0.2.0`.
+CodeShade follows Semantic Versioning. The current release is `0.3.0`, representing Phase 2 - Language & Framework Intelligence.
 
-See [CHANGELOG.md](CHANGELOG.md) for milestone history and [docs/RELEASING.md](docs/RELEASING.md) for the release process. Phase 2 work is recorded under `Unreleased` until a future version PR prepares `0.3.0`.
+See [CHANGELOG.md](CHANGELOG.md) for milestone history and [docs/RELEASING.md](docs/RELEASING.md) for the release process.
 
 ## Project Status
 

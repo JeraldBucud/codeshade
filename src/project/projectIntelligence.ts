@@ -26,7 +26,8 @@ import {
   isKnownMetadataFile,
   metadataFileNames,
   type ProjectFileRecord,
-  type ProjectIndex
+  type ProjectIndex,
+  updateProjectIndexSourcePath
 } from "./projectScanner";
 
 const scanLimit = 2500;
@@ -156,6 +157,31 @@ export class ProjectIntelligenceService {
     return cached
       ? this.buildAnalysis(cached.index, resolution.activeFile, git)
       : { status: "analyzing", root, message: "Project context has not been analyzed yet." };
+  }
+
+  async updateSourceFile(
+    uri: vscode.Uri,
+    change: "create" | "delete"
+  ): Promise<WorkspaceRoot | undefined> {
+    const resolution = await this.adapter.resolveProjectRootForUri(uri);
+    if (!resolution) {
+      return undefined;
+    }
+
+    const root = resolution.projectRoot;
+    const activeFile = resolution.activeFile;
+    const cached = this.cache.get(root.uri);
+    if (!cached || !activeFile) {
+      this.invalidateRoot(root.uri);
+      return root;
+    }
+
+    const generation = this.cache.begin(root);
+    const index = updateProjectIndexSourcePath(cached.index, activeFile, change);
+    if (this.cache.setCurrent(root, generation, index) && this.persistenceService) {
+      void this.persistenceService.saveProjectCatalog(root, index);
+    }
+    return root;
   }
 
   async invalidateUri(uri: vscode.Uri): Promise<WorkspaceRoot | undefined> {

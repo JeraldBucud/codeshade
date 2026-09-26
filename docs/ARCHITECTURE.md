@@ -1,6 +1,6 @@
 # CodingSensei Architecture
 
-CodingSensei is a local-first VS Code extension for learning by working inside real projects. Phase 2 builds on the cached project-intelligence foundation with native-first language and framework intelligence.
+CodingSensei is a local-first VS Code extension for learning by working inside real projects. Phase 3 adds persistent project identity and local storage foundations on top of the deterministic project and language intelligence delivered in Phases 1 and 2.
 
 ## Extension Shape
 
@@ -41,6 +41,16 @@ Project intelligence is split into project-root resolution, a structural index a
 Structural analysis runs on first project load, manual refresh, active project changes, and relevant metadata/source file create/delete/change events. Cursor movement, selection changes, diagnostics and ordinary source edits use cached project intelligence without refreshing Git. Switching between sibling projects resolves a different project root and uses a separate cache entry.
 
 Async analysis uses generation checks so stale scans cannot overwrite a newer active-project result. File watcher invalidation is rooted: changes in ignored heavy directories are skipped, and changes in a non-active workspace root invalidate that root without forcing the active Learning Mode view to rescan.
+
+## Persistent Project Identity And Local Storage
+
+Phase 3 assigns each resolved project a stable local identity. The project root may contain a tiny `.codingsensei/project.json` document with a versioned schema, UUID and creation timestamp. It intentionally contains no source contents, absolute paths, credentials or model data. Existing valid identities are reused, including after a project folder is renamed or moved. Invalid identity files are reported as unavailable rather than silently replaced.
+
+Larger persistent intelligence belongs outside the repository. CodingSensei uses the VS Code extension `globalStorageUri` and creates a project-specific directory keyed by the stable project UUID. The first storage record is a small manifest containing the schema version, stable project ID, creation time, most recent open time and last known local root URI. This establishes the storage boundary required for later persistent indexes without putting large generated databases into Git.
+
+Identity/storage initialization is best-effort and independent from deterministic project analysis. If a workspace is read-only, the identity is malformed, or extension storage is unavailable, CodingSensei continues to provide the existing in-memory project intelligence and exposes persistence as unavailable instead of disabling Learning Mode.
+
+This checkpoint establishes identity and storage only. Persistent file/symbol indexes and incremental change validation are layered on top in later Phase 3 checkpoints.
 
 ## Project Scanning Boundaries
 

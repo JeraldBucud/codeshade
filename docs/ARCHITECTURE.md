@@ -50,7 +50,11 @@ Larger persistent intelligence belongs outside the repository. CodingSensei uses
 
 Identity/storage initialization is best-effort and independent from deterministic project analysis. If a workspace is read-only, the identity is malformed, or extension storage is unavailable, CodingSensei continues to provide the existing in-memory project intelligence and exposes persistence as unavailable instead of disabling Learning Mode.
 
-This checkpoint establishes identity and storage only. Persistent file/symbol indexes and incremental change validation are layered on top in later Phase 3 checkpoints.
+Phase 3 also persists a versioned structural catalog in that project-specific storage. The catalog records relative code/config paths, source/test counts, ecosystem/tool/script summaries and bounded project metadata summaries, but not source-file contents. It is available across extension restarts and provides a storage contract for deeper indexes added later.
+
+Once a structural index is live in memory, source-file create/delete events can update its path-based source/test/ecosystem projections directly instead of repeating the bounded workspace file scan. Metadata changes still invalidate and rebuild the structural index because scripts, package evidence and build configuration can change. Deeper symbol/reference indexes will add changed-file invalidation on top of this path-level incremental foundation.
+
+Users can inspect the current project-intelligence status, force a rebuild, or clear stored external intelligence through CodingSensei commands. Clearing stored intelligence deliberately keeps the small stable project identity so the project remains recognizable when intelligence is rebuilt.
 
 ## Project Scanning Boundaries
 

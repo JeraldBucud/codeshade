@@ -69,7 +69,7 @@ export class ProgressiveHintEngine {
           level: "inspect",
           title: "Open a file to begin",
           message:
-          "Choose a source file so CodingSensei can describe the immediate learning context."
+            "Choose a source file so CodingSensei can describe the immediate learning context."
         }
       ];
     }

@@ -259,6 +259,12 @@ export class CodingSenseiController implements vscode.Disposable {
 
     this.languageAnalysis = analysis;
     this.frameworkDetections = this.collectFrameworkDetections(document, analysis);
+    void this.projectService.saveLanguageKnowledge(
+      this.projectAnalysis?.snapshot?.root,
+      document,
+      analysis,
+      this.frameworkDetections
+    );
     this.languageProjectContextKey = createLanguageProjectContextKey({
       document,
       snapshot: this.projectAnalysis?.snapshot

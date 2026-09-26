@@ -8,6 +8,7 @@ import type { ProjectPersistenceAdapter } from "./projectPersistence";
 
 const projectManifestFileName = "project.json";
 const projectCatalogFileName = "catalog.json";
+const projectKnowledgeDirectoryName = "knowledge";
 
 export function createVsCodeProjectPersistenceAdapter(
   globalStorageUri: vscode.Uri
@@ -52,6 +53,32 @@ export function createVsCodeProjectPersistenceAdapter(
         encoder.encode(content)
       );
     },
+    readProjectKnowledge: async (projectId, knowledgeKey) =>
+      readTextIfExists(
+        projectKnowledgeUri(globalStorageUri, projectId, knowledgeKey),
+        decoder
+      ),
+    writeProjectKnowledge: async (projectId, knowledgeKey, content) => {
+      const directory = vscode.Uri.joinPath(
+        projectStorageDirectory(globalStorageUri, projectId),
+        projectKnowledgeDirectoryName
+      );
+      await vscode.workspace.fs.createDirectory(directory);
+      await vscode.workspace.fs.writeFile(
+        vscode.Uri.joinPath(directory, `${knowledgeKey}.json`),
+        encoder.encode(content)
+      );
+    },
+    deleteProjectKnowledge: async (projectId, knowledgeKey) => {
+      const uri = projectKnowledgeUri(globalStorageUri, projectId, knowledgeKey);
+      try {
+        await vscode.workspace.fs.delete(uri, { recursive: false, useTrash: false });
+      } catch (error) {
+        if (!(error instanceof vscode.FileSystemError) || error.code !== "FileNotFound") {
+          throw error;
+        }
+      }
+    },
     deleteProjectStorage: async (projectId) => {
       const directory = projectStorageDirectory(globalStorageUri, projectId);
       try {
@@ -89,4 +116,16 @@ async function readTextIfExists(
     }
     throw error;
   }
+}
+
+function projectKnowledgeUri(
+  globalStorageUri: vscode.Uri,
+  projectId: string,
+  knowledgeKey: string
+): vscode.Uri {
+  return vscode.Uri.joinPath(
+    projectStorageDirectory(globalStorageUri, projectId),
+    projectKnowledgeDirectoryName,
+    `${knowledgeKey}.json`
+  );
 }

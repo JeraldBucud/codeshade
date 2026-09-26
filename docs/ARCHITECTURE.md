@@ -1,14 +1,16 @@
 # CodeShade Architecture
 
-CodeShade is a local-first VS Code extension for learning by working inside real projects. Phase 1 extends the Phase 0 foundation with deterministic cached project intelligence.
+CodeShade is a local-first VS Code extension for learning by working inside real projects. Phase 2 builds on the cached project-intelligence foundation with native-first language and framework intelligence.
 
 ## Extension Shape
 
 The extension activates through the CodeShade Activity Bar view and CodeShade commands. `src/extension.ts` wires together services, while the actual behavior lives in focused modules:
 
 - `src/context` adapts VS Code workspace, editor, selection, diagnostics and TODO data into plain domain models.
-- `src/learning` contains deterministic language awareness, progressive hints, next-step selection and the future intelligence-provider boundary.
+- `src/learning` contains progressive hints, next-step selection and the future intelligence-provider boundary.
 - `src/project` scans bounded project metadata, detects ecosystems and tools, relates source/test files, and reads optional local Git state.
+- `src/language` analyzes the active document through VS Code language providers when available and falls back to bounded deterministic text heuristics.
+- `src/framework` detects evidence-based framework signals from the active file and already-known project metadata.
 - `src/ui` renders Learning Mode using a VS Code Webview View.
 - `src/commands` connects command palette actions to the same services used by the UI.
 - `src/core` defines shared domain models.
@@ -26,6 +28,7 @@ Learning Mode presents immediate context from the active VS Code session:
 - active-file diagnostics
 - a deterministic next-step suggestion
 - a progressive hint
+- concise code-structure and framework signals when evidence exists
 
 This phase does not send project data anywhere and does not depend on any model or external service.
 
@@ -44,6 +47,18 @@ Async analysis uses generation checks so stale scans cannot overwrite a newer ac
 Project scanning uses VS Code workspace APIs such as `findFiles`, `RelativePattern` and `workspace.fs` so it can work in local and remote extension hosts. Scans are scoped to the resolved active project root, not blindly to the outer workspace folder. CodeShade never walks above the containing workspace root and does not search the user's whole machine. It ignores heavy folders such as `.git`, `node_modules`, `dist`, `build`, `out`, `target`, `coverage`, `.next`, virtualenv folders, vendor and generated folders.
 
 The source scanner is bounded to 2,500 relevant source files and marks the snapshot as truncated when the limit is exceeded. Critical root metadata is discovered separately from this source limit, including extensionless lock and wrapper files such as `yarn.lock`, `gradlew` and `mvnw`. The scanner primarily uses paths, filenames and known metadata files. It reads only small known metadata files such as `package.json`, and it does not load arbitrary source contents.
+
+## Language Intelligence
+
+The language layer is scoped to the active document. CodeShade asks VS Code for document symbols through the built-in command API when a language provider is available. For the current active symbol only, it may also ask VS Code definition and reference providers for bounded local project relationships. If providers are unavailable, it uses deterministic local heuristics to identify simple imports, classes, functions, methods, route handlers, JSX component usage, service-like dependencies and entry-point signals.
+
+Language analysis is cached by document URI and version with a small bounded cache. Cursor movement, selection changes and diagnostics derive the current containing symbol from cached symbols and do not read or regex-scan the full document. Ordinary text edits update fast editor context immediately and schedule a debounced language/framework refresh. Active editor changes, saves and manual refreshes may refresh language analysis. Generation checks are scoped by document URI so stale results cannot overwrite newer cache entries for the same document, while controller identity checks prevent stale async work from replacing the active UI state. The fallback parser is intentionally shallow and bounded; it does not pretend to be a full AST.
+
+## Framework Intelligence
+
+Framework detection is evidence-based and advisory. Phase 2 detects React, Express, Django and Spring Boot only when recognizable active-file evidence combines with strong framework signals such as imports or bounded project metadata summaries. Detections include confidence, evidence and roles such as component, hook, router, route handler, Django URL configuration, model, view, Spring controller, service, repository or application bootstrap.
+
+Project metadata evidence is normalized to package/build identifiers from already-read small metadata files, such as `package.json`, `requirements.txt`, `pyproject.toml`, Maven and Gradle files. CodeShade does not execute framework code, run project scripts or infer framework behavior from weak evidence. Framework signals feed the Learning Mode Project section and next-step ranking as learning guidance, not automation.
 
 ## Source/Test Relationships
 
@@ -70,7 +85,7 @@ Hints avoid generating complete replacement code because CodeShade should help t
 
 ## Future Analysis Layer
 
-Richer deterministic project intelligence can be added behind the existing context and project boundaries. Future work can deepen language and framework analysis without rewriting the Activity Bar UI.
+Richer deterministic analysis can be added behind the existing context, project, language and framework boundaries. Future work can deepen language and framework understanding without rewriting the Activity Bar UI. Tree-sitter or AST-backed analysis remains deferred until it provides clear value over the native-provider and deterministic fallback layers.
 
 ## Future Local Intelligence Layer
 
@@ -82,7 +97,7 @@ Future provider types may include:
 - embedded local models
 - optional integrations explicitly enabled by the user
 
-Phase 1 does not implement model providers, API clients, telemetry, authentication or network communication.
+Phase 2 does not implement model providers, API clients, telemetry, authentication or network communication.
 
 ## Why Core Must Work Without AI
 

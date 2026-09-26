@@ -1,22 +1,43 @@
 import * as vscode from "vscode";
 
 import type { HintSession, LearningContext, NextStep, ProjectAnalysis } from "../core/models";
+import type { FrameworkDetection } from "../framework/models";
+import { detectFrameworks } from "../framework/frameworkIntelligence";
+import type { LanguageAnalysis, LanguageDocumentInput } from "../language/models";
+import { LanguageIntelligenceService } from "../language/languageIntelligence";
+import {
+  createLanguageProjectContextKey,
+  shouldReconcileLanguageProject
+} from "../language/projectContextKey";
+import { VsCodeLanguageAdapter } from "../language/vscodeLanguageAdapter";
 import type { WorkspaceContextService } from "../context/workspaceContext";
 import type { ProgressiveHintEngine } from "../learning/hints";
 import type { NextStepService } from "../learning/nextSteps";
 import type { ProjectIntelligenceService } from "../project/projectIntelligence";
-import { isPathInsideProject } from "../project/projectRootResolver";
+import { isPathInsideProject, stripProjectPrefix } from "../project/projectRootResolver";
 import { isIgnoredProjectPath } from "../project/projectScanner";
 import { LearningModeViewProvider } from "../ui/learningModeView";
+import { DebouncedAction } from "../utils/debouncedAction";
 
 type RefreshMode = "fast" | "ensure-project" | "refresh-git" | "force-project";
 
 export class CodeShadeController implements vscode.Disposable {
+  private static readonly languageDebounceMs = 350;
   private readonly disposables: vscode.Disposable[] = [];
   private currentContext: LearningContext | undefined;
   private hintSession: HintSession | undefined;
   private nextStep: NextStep | undefined;
   private projectAnalysis: ProjectAnalysis | undefined;
+  private languageAnalysis: LanguageAnalysis | undefined;
+  private frameworkDetections: readonly FrameworkDetection[] = [];
+  private languageProjectContextKey: string | undefined;
+  private readonly languageService = new LanguageIntelligenceService(new VsCodeLanguageAdapter());
+  private readonly debouncedLanguageRefresh = new DebouncedAction(
+    CodeShadeController.languageDebounceMs,
+    () => {
+      void this.refreshLanguage(false);
+    }
+  );
 
   constructor(
     private readonly contextService: WorkspaceContextService,
@@ -66,6 +87,7 @@ export class CodeShadeController implements vscode.Disposable {
       vscode.workspace.onDidChangeTextDocument((event) => {
         if (isActiveDocument(event.document)) {
           this.refresh("fast");
+          this.scheduleLanguageRefresh();
         }
       }),
       vscode.workspace.onDidSaveTextDocument((document) => {
@@ -104,6 +126,7 @@ export class CodeShadeController implements vscode.Disposable {
   }
 
   dispose(): void {
+    this.debouncedLanguageRefresh.cancel();
     for (const disposable of this.disposables) {
       disposable.dispose();
     }
@@ -130,18 +153,31 @@ export class CodeShadeController implements vscode.Disposable {
         )
       };
     }
-    this.nextStep = this.nextStepService.choose(this.currentContext, this.projectAnalysis);
+    this.languageAnalysis = this.languageService.getCached(this.collectLanguageDocumentIdentity());
+    this.nextStep = this.nextStepService.choose(
+      this.currentContext,
+      this.projectAnalysis,
+      this.languageAnalysis,
+      this.frameworkDetections
+    );
     this.publish();
     switch (mode) {
       case "fast":
+        this.reconcileLanguageWithCachedProject();
         return;
       case "refresh-git":
+        this.debouncedLanguageRefresh.cancel();
+        void this.refreshLanguage(true);
         void this.refreshGit();
         return;
       case "force-project":
+        this.debouncedLanguageRefresh.cancel();
+        void this.refreshLanguage(true);
         void this.refreshProject({ force: true, refreshGit: true });
         return;
       case "ensure-project":
+        this.debouncedLanguageRefresh.cancel();
+        void this.refreshLanguage(false);
         void this.refreshProject({ force: false, refreshGit: true });
         return;
     }
@@ -158,12 +194,19 @@ export class CodeShadeController implements vscode.Disposable {
     const contextAtStart = this.currentContext;
     const analysis = await this.projectService.analyze(contextAtStart.activeEditor, options);
     if (this.currentContext !== contextAtStart) {
+      this.refresh("fast");
       return;
     }
 
     this.projectAnalysis = analysis;
-    this.nextStep = this.nextStepService.choose(this.currentContext, this.projectAnalysis);
+    this.nextStep = this.nextStepService.choose(
+      this.currentContext,
+      this.projectAnalysis,
+      this.languageAnalysis,
+      this.frameworkDetections
+    );
     this.publish();
+    this.reconcileLanguageAfterProjectReady(contextAtStart);
   }
 
   private async refreshGit(): Promise<void> {
@@ -178,8 +221,78 @@ export class CodeShadeController implements vscode.Disposable {
     }
 
     this.projectAnalysis = analysis;
-    this.nextStep = this.nextStepService.choose(this.currentContext, this.projectAnalysis);
+    this.nextStep = this.nextStepService.choose(
+      this.currentContext,
+      this.projectAnalysis,
+      this.languageAnalysis,
+      this.frameworkDetections
+    );
     this.publish();
+  }
+
+  private async refreshLanguage(force: boolean): Promise<void> {
+    if (!this.currentContext) {
+      return;
+    }
+
+    const document = this.collectLanguageDocument();
+    if (!document) {
+      this.languageAnalysis = this.languageService.getCached(undefined);
+      this.frameworkDetections = [];
+      return;
+    }
+
+    const contextAtStart = this.currentContext;
+    const analysis = await this.languageService.analyze(document, force);
+    if (this.currentContext !== contextAtStart) {
+      return;
+    }
+
+    this.languageAnalysis = analysis;
+    this.frameworkDetections = this.collectFrameworkDetections(document, analysis);
+    this.languageProjectContextKey = createLanguageProjectContextKey({
+      document,
+      snapshot: this.projectAnalysis?.snapshot
+    });
+    this.nextStep = this.nextStepService.choose(
+      this.currentContext,
+      this.projectAnalysis,
+      this.languageAnalysis,
+      this.frameworkDetections
+    );
+    this.publish();
+  }
+
+  private scheduleLanguageRefresh(): void {
+    this.debouncedLanguageRefresh.schedule();
+  }
+
+  private reconcileLanguageAfterProjectReady(contextAtStart: LearningContext): void {
+    if (this.currentContext !== contextAtStart) {
+      return;
+    }
+    this.reconcileLanguageWithCachedProject();
+  }
+
+  private reconcileLanguageWithCachedProject(): void {
+    if (this.projectAnalysis?.status !== "ready" || !this.projectAnalysis.snapshot) {
+      return;
+    }
+
+    const document = this.collectLanguageProjectIdentity();
+    const nextKey = createLanguageProjectContextKey({
+      document,
+      snapshot: this.projectAnalysis.snapshot
+    });
+    if (
+      shouldReconcileLanguageProject({
+        previousKey: this.languageProjectContextKey,
+        nextKey
+      })
+    ) {
+      this.debouncedLanguageRefresh.cancel();
+      void this.refreshLanguage(true);
+    }
   }
 
   private async invalidateChangedProject(uri: vscode.Uri): Promise<void> {
@@ -233,7 +346,86 @@ export class CodeShadeController implements vscode.Disposable {
       context: this.currentContext,
       hintSession: this.hintSession,
       nextStep: this.nextStep,
-      projectAnalysis: this.projectAnalysis
+      projectAnalysis: this.projectAnalysis,
+      languageAnalysis: this.languageAnalysis,
+      frameworkDetections: this.frameworkDetections
+    });
+  }
+
+  private collectLanguageProjectIdentity():
+    Pick<LanguageDocumentInput, "uri" | "projectRelativePath"> | undefined {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document.uri.scheme === "untitled") {
+      return undefined;
+    }
+
+    const relativePath = vscode.workspace.asRelativePath(editor.document.uri, false);
+    const projectRoot = this.projectAnalysis?.snapshot?.root;
+    return {
+      uri: editor.document.uri.toString(),
+      projectRelativePath: projectRoot
+        ? stripProjectPrefix(relativePath, projectRoot.relativePath)
+        : relativePath
+    };
+  }
+
+  private collectLanguageDocumentIdentity():
+    Pick<LanguageDocumentInput, "uri" | "version" | "cursor"> | undefined {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document.uri.scheme === "untitled") {
+      return undefined;
+    }
+
+    return {
+      uri: editor.document.uri.toString(),
+      version: editor.document.version,
+      cursor: {
+        line: editor.selection.active.line,
+        character: editor.selection.active.character
+      }
+    };
+  }
+
+  private collectLanguageDocument(): LanguageDocumentInput | undefined {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document.uri.scheme === "untitled") {
+      return undefined;
+    }
+    const relativePath = vscode.workspace.asRelativePath(editor.document.uri, false);
+    const projectRoot = this.projectAnalysis?.snapshot?.root;
+    const projectRelativePath = projectRoot
+      ? stripProjectPrefix(relativePath, projectRoot.relativePath)
+      : relativePath;
+
+    return {
+      uri: editor.document.uri.toString(),
+      fileName: editor.document.fileName,
+      relativePath,
+      projectRootUri: projectRoot?.uri,
+      projectRelativePath,
+      knownProjectFiles: this.projectAnalysis?.snapshot?.codeFiles,
+      languageId: editor.document.languageId,
+      version: editor.document.version,
+      text: editor.document.getText(),
+      cursor: {
+        line: editor.selection.active.line,
+        character: editor.selection.active.character
+      }
+    };
+  }
+
+  private collectFrameworkDetections(
+    document: LanguageDocumentInput,
+    languageAnalysis: LanguageAnalysis
+  ): readonly FrameworkDetection[] {
+    return detectFrameworks({
+      fileName: document.fileName,
+      relativePath: document.relativePath,
+      languageId: document.languageId,
+      text: document.text,
+      languageAnalysis,
+      manifestFiles: this.projectAnalysis?.snapshot?.manifestFiles,
+      metadataPackageNames: this.projectAnalysis?.snapshot?.metadata.packageNames
     });
   }
 }

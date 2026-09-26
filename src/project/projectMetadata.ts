@@ -3,6 +3,7 @@ import { extension, fileName, normalizePath } from "./pathUtils";
 
 export interface PackageJsonSummary {
   readonly scripts: readonly ProjectScript[];
+  readonly packageNames: readonly string[];
 }
 
 export function parsePackageJson(text: string): PackageJsonSummary | undefined {
@@ -13,23 +14,52 @@ export function parsePackageJson(text: string): PackageJsonSummary | undefined {
     }
 
     const scriptsValue = parsed["scripts"];
-    if (!isObject(scriptsValue)) {
-      return { scripts: [] };
-    }
 
     return {
-      scripts: Object.entries(scriptsValue)
-        .filter((entry): entry is [string, string] => typeof entry[1] === "string")
-        .map(([name]) => name)
-        .sort()
-        .map((name) => ({
-          name,
-          kind: classifyScript(name)
-        }))
+      scripts: isObject(scriptsValue)
+        ? Object.entries(scriptsValue)
+            .filter((entry): entry is [string, string] => typeof entry[1] === "string")
+            .map(([name]) => name)
+            .sort()
+            .map((name) => ({
+              name,
+              kind: classifyScript(name)
+            }))
+        : [],
+      packageNames: collectPackageNames(parsed)
     };
   } catch {
     return undefined;
   }
+}
+
+export function collectMetadataPackageNames(
+  metadataFiles: readonly { readonly relativePath: string; readonly content?: string }[]
+): readonly string[] {
+  const packageNames = new Set<string>();
+
+  for (const file of metadataFiles) {
+    const name = fileName(file.relativePath);
+    const content = file.content ?? "";
+
+    if (name === "package.json") {
+      for (const packageName of parsePackageJson(content)?.packageNames ?? []) {
+        packageNames.add(packageName);
+      }
+      continue;
+    }
+
+    if (name === "requirements.txt") {
+      collectRequirementsNames(content).forEach((packageName) => packageNames.add(packageName));
+      continue;
+    }
+
+    if (["pyproject.toml", "pom.xml", "build.gradle", "build.gradle.kts"].includes(name)) {
+      collectKnownFrameworkNames(content).forEach((packageName) => packageNames.add(packageName));
+    }
+  }
+
+  return [...packageNames].sort();
 }
 
 export function detectEcosystems(paths: readonly string[]): readonly ProjectEcosystem[] {
@@ -133,4 +163,58 @@ export function classifyScript(name: string): ProjectScript["kind"] {
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function collectPackageNames(parsed: Record<string, unknown>): readonly string[] {
+  const names = new Set<string>();
+  for (const key of [
+    "dependencies",
+    "devDependencies",
+    "peerDependencies",
+    "optionalDependencies"
+  ]) {
+    const dependencies = parsed[key];
+    if (isObject(dependencies)) {
+      Object.keys(dependencies).forEach((name) => names.add(name));
+    }
+  }
+  return [...names].sort();
+}
+
+function collectRequirementsNames(text: string): readonly string[] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#"))
+    .map((line) => /^([A-Za-z0-9_.-]+)/.exec(line)?.[1]?.toLowerCase())
+    .filter((name): name is string => name !== undefined);
+}
+
+function collectKnownFrameworkNames(text: string): readonly string[] {
+  const normalized = text.toLowerCase();
+  const names = new Set<string>();
+
+  for (const name of ["django", "react", "react-dom", "express"]) {
+    if (normalized.includes(name)) {
+      names.add(name);
+    }
+  }
+
+  if (normalized.includes("org.springframework.boot") || normalized.includes("spring-boot-")) {
+    names.add("spring-boot");
+  }
+
+  if (normalized.includes("spring-boot-starter")) {
+    names.add("spring-boot-starter");
+  }
+
+  for (const match of normalized.matchAll(/spring-boot-starter-[a-z0-9_.-]+/g)) {
+    names.add(match[0]);
+  }
+
+  if (normalized.includes("spring-boot-maven-plugin")) {
+    names.add("spring-boot-maven-plugin");
+  }
+
+  return [...names];
 }

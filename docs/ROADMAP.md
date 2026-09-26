@@ -12,7 +12,7 @@ Complete. Added richer local project understanding: workspace structure, source/
 
 ## Phase 2 - Language & Framework Intelligence (`0.3.0`)
 
-Next. Introduce deeper language understanding for JavaScript, TypeScript, Python and Java. Explore AST, Tree-sitter or LSP-assisted analysis when they provide clear value. Add selected framework awareness for React, Node.js/Express, Django and Spring Boot.
+Current. Add native-first active-file symbol awareness, deterministic fallback parsing and evidence-based framework signals for React, Node.js/Express, Django and Spring Boot while preserving the local-first, model-free foundation. Deeper AST, Tree-sitter or LSP-assisted analysis remains available for later refinement when it provides clear value.
 
 ## Phase 3 - Learning Engine (`0.4.0`)
 

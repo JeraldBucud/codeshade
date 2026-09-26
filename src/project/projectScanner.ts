@@ -1,6 +1,11 @@
 import type { GitProjectState, ProjectSnapshot, ProjectTool, WorkspaceRoot } from "../core/models";
 import { isTestFile } from "../learning/languageProfiles";
-import { detectEcosystems, detectTools, parsePackageJson } from "./projectMetadata";
+import {
+  collectMetadataPackageNames,
+  detectEcosystems,
+  detectTools,
+  parsePackageJson
+} from "./projectMetadata";
 import { findRelatedFiles } from "./sourceTestRelations";
 import { dirname, extension, fileName, normalizePath } from "./pathUtils";
 
@@ -34,6 +39,7 @@ export interface ProjectIndex {
   readonly scanLimit: number;
   readonly scanTruncated: boolean;
   readonly scripts: readonly ProjectSnapshot["scripts"][number][];
+  readonly metadata: ProjectSnapshot["metadata"];
 }
 
 export interface ProjectSnapshotInput {
@@ -115,7 +121,10 @@ export function buildProjectIndex(input: ProjectIndexInput): ProjectIndex {
     testFileCount: testFiles.length,
     scanLimit: input.scanLimit,
     scanTruncated: input.scanTruncated,
-    scripts: packageJsonSummary?.scripts ?? []
+    scripts: packageJsonSummary?.scripts ?? [],
+    metadata: {
+      packageNames: collectMetadataPackageNames(input.metadataFiles)
+    }
   };
 }
 
@@ -124,6 +133,7 @@ export function buildProjectSnapshot(input: ProjectSnapshotInput): ProjectSnapsh
     root: input.index.root,
     ecosystems: input.index.ecosystems,
     tools: input.index.tools,
+    codeFiles: input.index.codeFiles,
     manifestFiles: input.index.manifestFiles,
     configFiles: input.index.configFiles,
     sourceRoots: input.index.sourceRoots,
@@ -133,6 +143,7 @@ export function buildProjectSnapshot(input: ProjectSnapshotInput): ProjectSnapsh
     scanLimit: input.index.scanLimit,
     scanTruncated: input.index.scanTruncated,
     scripts: input.index.scripts,
+    metadata: input.index.metadata,
     relatedFiles: findRelatedFiles(input.activeFile, input.index.codeFiles),
     git: input.git
   };

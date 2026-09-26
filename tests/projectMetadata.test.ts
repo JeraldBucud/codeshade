@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { detectEcosystems, detectTools, parsePackageJson } from "../src/project/projectMetadata";
+import {
+  collectMetadataPackageNames,
+  detectEcosystems,
+  detectTools,
+  parsePackageJson
+} from "../src/project/projectMetadata";
 
 describe("project metadata", () => {
   it("detects supported ecosystems from manifests and file paths", () => {
@@ -48,6 +53,37 @@ describe("project metadata", () => {
       { name: "lint:fix", kind: "lint" },
       { name: "preview", kind: "other" },
       { name: "test", kind: "test" }
+    ]);
+    expect(summary?.packageNames).toEqual([]);
+  });
+
+  it("extracts bounded framework package evidence from known metadata", () => {
+    const packageNames = collectMetadataPackageNames([
+      {
+        relativePath: "package.json",
+        content: JSON.stringify({
+          dependencies: { react: "^19.0.0", express: "^5.0.0" },
+          devDependencies: { vite: "^7.0.0" }
+        })
+      },
+      { relativePath: "requirements.txt", content: "Django==5.1\npytest==8.0" },
+      {
+        relativePath: "pom.xml",
+        content:
+          "<groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId><artifactId>spring-boot-maven-plugin</artifactId>"
+      }
+    ]);
+
+    expect(packageNames).toEqual([
+      "django",
+      "express",
+      "pytest",
+      "react",
+      "spring-boot",
+      "spring-boot-maven-plugin",
+      "spring-boot-starter",
+      "spring-boot-starter-web",
+      "vite"
     ]);
   });
 

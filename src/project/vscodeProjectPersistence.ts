@@ -3,10 +3,7 @@ import { TextDecoder, TextEncoder } from "node:util";
 import * as vscode from "vscode";
 
 import type { WorkspaceRoot } from "../core/models";
-import {
-  projectIdentityDirectoryName,
-  projectIdentityFileName
-} from "./projectIdentity";
+import { projectIdentityDirectoryName, projectIdentityFileName } from "./projectIdentity";
 import type { ProjectPersistenceAdapter } from "./projectPersistence";
 
 const projectManifestFileName = "project.json";
@@ -18,8 +15,7 @@ export function createVsCodeProjectPersistenceAdapter(
   const encoder = new TextEncoder();
 
   return {
-    readProjectIdentity: async (root) =>
-      readTextIfExists(projectIdentityUri(root), decoder),
+    readProjectIdentity: async (root) => readTextIfExists(projectIdentityUri(root), decoder),
     writeProjectIdentity: async (root, content) => {
       const directory = vscode.Uri.joinPath(
         vscode.Uri.parse(root.uri),

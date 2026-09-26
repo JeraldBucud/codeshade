@@ -1,5 +1,12 @@
 import type { ProjectPersistenceSummary, WorkspaceRoot } from "../core/models";
 import {
+  createProjectCatalog,
+  parseProjectCatalog,
+  serializeProjectCatalog,
+  type PersistentProjectCatalog
+} from "./projectCatalog";
+import type { ProjectIndex } from "./projectScanner";
+import {
   createProjectIdentity,
   parseProjectIdentity,
   serializeProjectIdentity,
@@ -13,6 +20,8 @@ export interface ProjectPersistenceAdapter {
   readonly readProjectIdentity: (root: WorkspaceRoot) => Promise<string | undefined>;
   readonly writeProjectIdentity: (root: WorkspaceRoot, content: string) => Promise<void>;
   readonly writeProjectManifest: (projectId: string, content: string) => Promise<void>;
+  readonly readProjectCatalog: (projectId: string) => Promise<string | undefined>;
+  readonly writeProjectCatalog: (projectId: string, content: string) => Promise<void>;
 }
 
 export interface PersistentProjectManifest {
@@ -54,6 +63,39 @@ export class ProjectPersistenceService {
     });
     this.pendingByRoot.set(root.uri, next);
     return next;
+  }
+
+  async loadProjectCatalog(root: WorkspaceRoot): Promise<PersistentProjectCatalog | undefined> {
+    const state = await this.ensureProject(root);
+    if (state.status !== "ready" || !state.projectId) {
+      return undefined;
+    }
+
+    try {
+      const content = await this.adapter.readProjectCatalog(state.projectId);
+      if (!content) {
+        return undefined;
+      }
+      const catalog = parseProjectCatalog(content);
+      return catalog?.projectId === state.projectId ? catalog : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  async saveProjectCatalog(root: WorkspaceRoot, index: ProjectIndex): Promise<boolean> {
+    const state = await this.ensureProject(root);
+    if (state.status !== "ready" || !state.projectId) {
+      return false;
+    }
+
+    try {
+      const catalog = createProjectCatalog(state.projectId, index, this.dependencies.now);
+      await this.adapter.writeProjectCatalog(state.projectId, serializeProjectCatalog(catalog));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   clearCachedState(rootUri: string): void {

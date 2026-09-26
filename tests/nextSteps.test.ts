@@ -345,7 +345,7 @@ describe("next step service", () => {
             targetFile: "src/api/apiClient.js",
             confidence: "high",
             reason:
-              "The active file imports a local project module. CodeShade resolved it to a known local project file."
+              "The active file imports a local project module. CodingSensei resolved it to a known local project file."
           }
         ],
         relationships: []

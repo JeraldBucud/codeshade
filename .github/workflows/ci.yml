@@ -38,5 +38,11 @@ jobs:
       - name: Check formatting
         run: pnpm format:check
 
+      - name: Show formatting diff
+        if: failure()
+        run: |
+          pnpm exec prettier --write tests/projectPersistence.test.ts
+          git diff -- tests/projectPersistence.test.ts
+
       - name: Test
         run: pnpm test

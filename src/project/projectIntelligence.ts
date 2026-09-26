@@ -4,10 +4,14 @@ import type {
   ActiveEditorContext,
   GitProjectState,
   ProjectAnalysis,
+  ProjectPersistenceSummary,
   WorkspaceRoot
 } from "../core/models";
+import type { FrameworkDetection } from "../framework/models";
+import type { LanguageAnalysis, LanguageDocumentInput } from "../language/models";
 import { readGitState } from "./gitAdapter";
 import { ProjectIndexCache } from "./projectCache";
+import type { ProjectPersistenceService } from "./projectPersistence";
 import { dirname, normalizePath } from "./pathUtils";
 import {
   isPathInsideProject,
@@ -24,7 +28,8 @@ import {
   isKnownMetadataFile,
   metadataFileNames,
   type ProjectFileRecord,
-  type ProjectIndex
+  type ProjectIndex,
+  updateProjectIndexSourcePath
 } from "./projectScanner";
 
 const scanLimit = 2500;
@@ -54,9 +59,13 @@ export class ProjectIntelligenceService {
   private readonly adapter: ProjectWorkspaceAdapter;
   private gitCache = new Map<string, GitProjectState>();
   private gitGenerations = new Map<string, number>();
+  private persistenceState = new Map<string, ProjectPersistenceSummary>();
   private analyzing = new Set<string>();
 
-  constructor(adapter: ProjectWorkspaceAdapter = createVsCodeProjectAdapter()) {
+  constructor(
+    adapter: ProjectWorkspaceAdapter = createVsCodeProjectAdapter(),
+    private readonly persistenceService?: ProjectPersistenceService
+  ) {
     this.adapter = adapter;
   }
 
@@ -98,6 +107,7 @@ export class ProjectIntelligenceService {
 
     const root = resolution.projectRoot;
     const activeFile = resolution.activeFile;
+    await this.ensurePersistence(root);
     const cached = this.cache.get(root.uri);
     if (!options.force && cached) {
       const git = options.refreshGit
@@ -118,6 +128,10 @@ export class ProjectIntelligenceService {
           : { status: "analyzing", root, message: "Analyzing project context locally." };
       }
 
+      if (this.persistenceService) {
+        void this.persistenceService.saveProjectCatalog(root, index);
+      }
+
       const git = options.refreshGit
         ? await this.refreshGitForRoot(root, activeFile)
         : this.gitCache.get(root.uri);
@@ -133,6 +147,35 @@ export class ProjectIntelligenceService {
     }
   }
 
+  async saveLanguageKnowledge(
+    root: WorkspaceRoot | undefined,
+    document: LanguageDocumentInput,
+    analysis: LanguageAnalysis,
+    frameworks: readonly FrameworkDetection[]
+  ): Promise<boolean> {
+    if (!root || !this.persistenceService || analysis.status === "unavailable") {
+      return false;
+    }
+    return this.persistenceService.saveFileKnowledge(root, document, analysis, frameworks);
+  }
+
+  async clearPersistentData(activeEditor: ActiveEditorContext | undefined): Promise<boolean> {
+    if (!this.persistenceService) {
+      return false;
+    }
+
+    const resolution = await this.adapter.resolveProjectRoot(activeEditor);
+    if (!resolution) {
+      return false;
+    }
+
+    const cleared = await this.persistenceService.clearProjectData(resolution.projectRoot);
+    if (cleared) {
+      this.persistenceState.delete(resolution.projectRoot.uri);
+    }
+    return cleared;
+  }
+
   async refreshGit(activeEditor: ActiveEditorContext | undefined): Promise<ProjectAnalysis> {
     const resolution = await this.adapter.resolveProjectRoot(activeEditor);
     if (!resolution) {
@@ -145,6 +188,34 @@ export class ProjectIntelligenceService {
     return cached
       ? this.buildAnalysis(cached.index, resolution.activeFile, git)
       : { status: "analyzing", root, message: "Project context has not been analyzed yet." };
+  }
+
+  async updateSourceFile(
+    uri: vscode.Uri,
+    change: "create" | "delete"
+  ): Promise<WorkspaceRoot | undefined> {
+    const resolution = await this.adapter.resolveProjectRootForUri(uri);
+    if (!resolution) {
+      return undefined;
+    }
+
+    const root = resolution.projectRoot;
+    const activeFile = resolution.activeFile;
+    const cached = this.cache.get(root.uri);
+    if (!cached || !activeFile) {
+      this.invalidateRoot(root.uri);
+      return root;
+    }
+
+    const generation = this.cache.begin(root);
+    const index = updateProjectIndexSourcePath(cached.index, activeFile, change);
+    if (change === "delete" && this.persistenceService) {
+      void this.persistenceService.deleteFileKnowledge(root, activeFile);
+    }
+    if (this.cache.setCurrent(root, generation, index) && this.persistenceService) {
+      void this.persistenceService.saveProjectCatalog(root, index);
+    }
+    return root;
   }
 
   async invalidateUri(uri: vscode.Uri): Promise<WorkspaceRoot | undefined> {
@@ -191,6 +262,15 @@ export class ProjectIntelligenceService {
     });
   }
 
+  private async ensurePersistence(root: WorkspaceRoot): Promise<void> {
+    if (!this.persistenceService) {
+      return;
+    }
+
+    const state = await this.persistenceService.ensureProject(root);
+    this.persistenceState.set(root.uri, state);
+  }
+
   private async refreshGitForRoot(
     root: WorkspaceRoot,
     activeFile: string | undefined
@@ -229,7 +309,8 @@ export class ProjectIntelligenceService {
           isRepository: false,
           error: "Git state has not been refreshed yet."
         }
-      })
+      }),
+      persistence: this.persistenceState.get(index.root.uri)
     };
   }
 }

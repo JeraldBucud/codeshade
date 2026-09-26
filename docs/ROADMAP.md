@@ -16,6 +16,10 @@ Complete. Added project-root discovery, cached local project intelligence, ecosy
 
 Complete. Added native-first active-file symbol awareness, bounded definition/reference relationships, deterministic fallback parsing, resolved local code relationships and evidence-based framework signals for React, Express, Django and Spring Boot.
 
+### Phase 3 — Persistent Project Intelligence (`0.4.0`)
+
+In progress. Completed foundations now include a versioned stable project identity in `.codingsensei/project.json`, project-specific local extension storage, a persistent structural project catalog, incremental source create/delete updates, and inspect/rebuild/clear management commands. Remaining Phase 3 work deepens changed-file metadata, persistent symbol/relationship records and background/idle indexing.
+
 ---
 
 # V1 Target Scope

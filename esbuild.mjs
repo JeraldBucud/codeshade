@@ -20,7 +20,7 @@ const context = await esbuild.context({
 
 if (watch) {
   await context.watch();
-  console.log("Watching CodeShade extension sources...");
+  console.log("Watching CodingSensei extension sources...");
 } else {
   await context.rebuild();
   await context.dispose();

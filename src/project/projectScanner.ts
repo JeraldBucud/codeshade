@@ -9,14 +9,59 @@ export interface ProjectFileRecord {
   readonly content?: string;
 }
 
-export interface ProjectScanInput {
+export interface ProjectIndexInput {
   readonly root: WorkspaceRoot;
-  readonly files: readonly ProjectFileRecord[];
-  readonly activeFile?: string;
+  readonly sourceFiles: readonly ProjectFileRecord[];
+  readonly metadataFiles: readonly ProjectFileRecord[];
   readonly scanLimit: number;
   readonly scanTruncated: boolean;
+}
+
+export interface ProjectIndex {
+  readonly root: WorkspaceRoot;
+  readonly allPaths: readonly string[];
+  readonly codeFiles: readonly string[];
+  readonly sourceFiles: readonly string[];
+  readonly testFiles: readonly string[];
+  readonly ecosystems: readonly ProjectSnapshot["ecosystems"][number][];
+  readonly tools: readonly ProjectTool[];
+  readonly manifestFiles: readonly string[];
+  readonly configFiles: readonly string[];
+  readonly sourceRoots: readonly string[];
+  readonly testRoots: readonly string[];
+  readonly sourceFileCount: number;
+  readonly testFileCount: number;
+  readonly scanLimit: number;
+  readonly scanTruncated: boolean;
+  readonly scripts: readonly ProjectSnapshot["scripts"][number][];
+}
+
+export interface ProjectSnapshotInput {
+  readonly index: ProjectIndex;
+  readonly activeFile?: string;
   readonly git: GitProjectState;
 }
+
+export const metadataFileNames = [
+  "package.json",
+  "tsconfig.json",
+  "jsconfig.json",
+  "pnpm-lock.yaml",
+  "package-lock.json",
+  "yarn.lock",
+  "pyproject.toml",
+  "requirements.txt",
+  "setup.py",
+  "setup.cfg",
+  "pytest.ini",
+  "pom.xml",
+  "build.gradle",
+  "build.gradle.kts",
+  "gradlew",
+  "gradlew.bat",
+  "mvnw",
+  "mvnw.cmd"
+] as const;
 
 const manifestNames = new Set([
   "package.json",
@@ -28,6 +73,10 @@ const manifestNames = new Set([
   "pom.xml",
   "build.gradle",
   "build.gradle.kts",
+  "gradlew",
+  "gradlew.bat",
+  "mvnw",
+  "mvnw.cmd",
   "pnpm-lock.yaml",
   "package-lock.json",
   "yarn.lock"
@@ -35,38 +84,69 @@ const manifestNames = new Set([
 
 const configNames = new Set(["tsconfig.json", "jsconfig.json"]);
 
-export function buildProjectSnapshot(input: ProjectScanInput): ProjectSnapshot {
-  const paths = input.files.map((file) => normalizePath(file.relativePath)).sort();
-  const packageJson = input.files.find((file) => fileName(file.relativePath) === "package.json");
+export function buildProjectIndex(input: ProjectIndexInput): ProjectIndex {
+  const sourceFilePaths = input.sourceFiles.map((file) => normalizePath(file.relativePath));
+  const metadataFilePaths = input.metadataFiles.map((file) => normalizePath(file.relativePath));
+  const allPaths = [...new Set([...sourceFilePaths, ...metadataFilePaths])].sort();
+  const packageJson = input.metadataFiles.find(
+    (file) => fileName(file.relativePath) === "package.json"
+  );
   const packageJsonSummary = packageJson?.content
     ? parsePackageJson(packageJson.content)
     : undefined;
-  const manifestFiles = paths.filter((path) => manifestNames.has(fileName(path)));
-  const configFiles = paths.filter((path) => configNames.has(fileName(path)));
-  const sourceFiles = paths.filter(isSourceFile);
-  const testFiles = sourceFiles.filter(isTestFile);
+  const codeFiles = allPaths.filter(isSourceFile);
+  const testFiles = codeFiles.filter(isTestFile);
+  const testSet = new Set(testFiles);
+  const nonTestSourceFiles = codeFiles.filter((path) => !testSet.has(path));
 
   return {
     root: input.root,
-    ecosystems: detectEcosystems(paths),
-    tools: sortTools(detectTools(paths)),
-    manifestFiles,
-    configFiles,
-    sourceRoots: findLikelyRoots(sourceFiles, false),
+    allPaths,
+    codeFiles,
+    sourceFiles: nonTestSourceFiles,
+    testFiles,
+    ecosystems: detectEcosystems(allPaths),
+    tools: sortTools(detectTools(allPaths)),
+    manifestFiles: allPaths.filter((path) => manifestNames.has(fileName(path))),
+    configFiles: allPaths.filter((path) => configNames.has(fileName(path))),
+    sourceRoots: findLikelyRoots(nonTestSourceFiles, false),
     testRoots: findLikelyRoots(testFiles, true),
-    sourceFileCount: sourceFiles.length,
+    sourceFileCount: nonTestSourceFiles.length,
     testFileCount: testFiles.length,
     scanLimit: input.scanLimit,
     scanTruncated: input.scanTruncated,
-    scripts: packageJsonSummary?.scripts ?? [],
-    relatedFiles: findRelatedFiles(input.activeFile, sourceFiles),
+    scripts: packageJsonSummary?.scripts ?? []
+  };
+}
+
+export function buildProjectSnapshot(input: ProjectSnapshotInput): ProjectSnapshot {
+  return {
+    root: input.index.root,
+    ecosystems: input.index.ecosystems,
+    tools: input.index.tools,
+    manifestFiles: input.index.manifestFiles,
+    configFiles: input.index.configFiles,
+    sourceRoots: input.index.sourceRoots,
+    testRoots: input.index.testRoots,
+    sourceFileCount: input.index.sourceFileCount,
+    testFileCount: input.index.testFileCount,
+    scanLimit: input.index.scanLimit,
+    scanTruncated: input.index.scanTruncated,
+    scripts: input.index.scripts,
+    relatedFiles: findRelatedFiles(input.activeFile, input.index.codeFiles),
     git: input.git
   };
 }
 
-export function isProjectMetadataPath(path: string): boolean {
-  const name = fileName(path);
-  return manifestNames.has(name) || configNames.has(name);
+export function isIgnoredProjectPath(path: string): boolean {
+  const normalized = normalizePath(path);
+  return /(^|\/)(\.git|node_modules|dist|build|out|target|coverage|\.next|\.venv|venv|__pycache__|vendor|generated)(\/|$)/.test(
+    normalized
+  );
+}
+
+export function isKnownMetadataFile(path: string): boolean {
+  return metadataFileNames.includes(fileName(path) as (typeof metadataFileNames)[number]);
 }
 
 function isSourceFile(path: string): boolean {
@@ -80,12 +160,18 @@ function findLikelyRoots(paths: readonly string[], testOnly: boolean): readonly 
 
   for (const path of paths) {
     const normalized = normalizePath(path);
-    if (normalized.includes("src/main/java/")) {
-      roots.add("src/main/java");
-    } else if (normalized.includes("src/test/java/")) {
-      roots.add("src/test/java");
+    if (normalized.includes("src/test/java/")) {
+      if (testOnly) {
+        roots.add("src/test/java");
+      }
+    } else if (normalized.includes("src/main/java/")) {
+      if (!testOnly) {
+        roots.add("src/main/java");
+      }
     } else if (/(^|\/)(__tests__|tests?|test)\//.test(normalized)) {
-      roots.add(dirname(normalized).split("/").slice(0, 2).join("/"));
+      if (testOnly) {
+        roots.add(dirname(normalized).split("/").slice(0, 2).join("/"));
+      }
     } else if (!testOnly && normalized.includes("src/")) {
       roots.add("src");
     }

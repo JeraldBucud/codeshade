@@ -20,7 +20,7 @@ export async function readGitState(input: {
 
     const [branch, status] = await Promise.all([
       execGit(input.rootPath, ["branch", "--show-current"]),
-      execGit(input.rootPath, ["status", "--porcelain=v1", "--untracked-files=normal"])
+      execGit(input.rootPath, ["status", "--porcelain=v1", "-z", "--untracked-files=normal"])
     ]);
 
     return parseGitState({

@@ -18,7 +18,9 @@ export function parsePackageJson(text: string): PackageJsonSummary | undefined {
     }
 
     return {
-      scripts: Object.keys(scriptsValue)
+      scripts: Object.entries(scriptsValue)
+        .filter((entry): entry is [string, string] => typeof entry[1] === "string")
+        .map(([name]) => name)
         .sort()
         .map((name) => ({
           name,

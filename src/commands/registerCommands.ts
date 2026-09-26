@@ -5,6 +5,7 @@ import type { WorkspaceContextService } from "../context/workspaceContext";
 import type { ProgressiveHintEngine } from "../learning/hints";
 import type { NextStepService } from "../learning/nextSteps";
 import type { ProjectIntelligenceService } from "../project/projectIntelligence";
+import { isIgnoredProjectPath } from "../project/projectScanner";
 import { LearningModeViewProvider } from "../ui/learningModeView";
 
 export class CodeShadeController implements vscode.Disposable {
@@ -24,7 +25,7 @@ export class CodeShadeController implements vscode.Disposable {
 
   register(context: vscode.ExtensionContext): void {
     const projectMetadataWatcher = vscode.workspace.createFileSystemWatcher(
-      "**/{package.json,tsconfig.json,jsconfig.json,pyproject.toml,requirements.txt,setup.py,setup.cfg,pytest.ini,pom.xml,build.gradle,build.gradle.kts,pnpm-lock.yaml,package-lock.json,yarn.lock}"
+      "**/{package.json,tsconfig.json,jsconfig.json,pyproject.toml,requirements.txt,setup.py,setup.cfg,pytest.ini,pom.xml,build.gradle,build.gradle.kts,pnpm-lock.yaml,package-lock.json,yarn.lock,gradlew,gradlew.bat,mvnw,mvnw.cmd}"
     );
     const projectFileWatcher = vscode.workspace.createFileSystemWatcher(
       "**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs,py,java}"
@@ -66,28 +67,23 @@ export class CodeShadeController implements vscode.Disposable {
       }),
       vscode.workspace.onDidSaveTextDocument((document) => {
         if (isActiveDocument(document)) {
-          this.refresh();
+          this.refresh({ gitOnly: true });
         }
       }),
       projectMetadataWatcher.onDidChange((uri) => {
-        this.projectService.invalidateUri(uri);
-        this.refresh({ forceProject: true });
+        this.invalidateChangedProject(uri);
       }),
       projectMetadataWatcher.onDidCreate((uri) => {
-        this.projectService.invalidateUri(uri);
-        this.refresh({ forceProject: true });
+        this.invalidateChangedProject(uri);
       }),
       projectMetadataWatcher.onDidDelete((uri) => {
-        this.projectService.invalidateUri(uri);
-        this.refresh({ forceProject: true });
+        this.invalidateChangedProject(uri);
       }),
       projectFileWatcher.onDidCreate((uri) => {
-        this.projectService.invalidateUri(uri);
-        this.refresh({ forceProject: true });
+        this.invalidateChangedProject(uri);
       }),
       projectFileWatcher.onDidDelete((uri) => {
-        this.projectService.invalidateUri(uri);
-        this.refresh({ forceProject: true });
+        this.invalidateChangedProject(uri);
       }),
       vscode.languages.onDidChangeDiagnostics((event) => {
         const activeDocumentUri = vscode.window.activeTextEditor?.document.uri;
@@ -110,7 +106,9 @@ export class CodeShadeController implements vscode.Disposable {
     }
   }
 
-  private refresh(options: { readonly forceProject?: boolean } = {}): void {
+  private refresh(
+    options: { readonly forceProject?: boolean; readonly gitOnly?: boolean } = {}
+  ): void {
     const previousHintSession = this.hintSession;
     this.currentContext = this.contextService.collect();
     this.projectAnalysis = options.forceProject
@@ -119,7 +117,7 @@ export class CodeShadeController implements vscode.Disposable {
           root: this.currentContext.workspace.activeWorkspaceRoot,
           message: "Analyzing project context locally."
         }
-      : this.projectService.getCached();
+      : this.projectService.getCached(this.currentContext.activeEditor);
     this.hintSession = this.hintEngine.createSession(this.currentContext);
     if (previousHintSession?.targetKey === this.hintSession.targetKey) {
       this.hintSession = {
@@ -132,7 +130,11 @@ export class CodeShadeController implements vscode.Disposable {
     }
     this.nextStep = this.nextStepService.choose(this.currentContext, this.projectAnalysis);
     this.publish();
-    void this.refreshProject(options.forceProject ?? false);
+    if (options.gitOnly) {
+      void this.refreshGit();
+    } else {
+      void this.refreshProject(options.forceProject ?? false);
+    }
   }
 
   private async refreshProject(force: boolean): Promise<void> {
@@ -149,6 +151,34 @@ export class CodeShadeController implements vscode.Disposable {
     this.projectAnalysis = analysis;
     this.nextStep = this.nextStepService.choose(this.currentContext, this.projectAnalysis);
     this.publish();
+  }
+
+  private async refreshGit(): Promise<void> {
+    if (!this.currentContext) {
+      return;
+    }
+
+    const contextAtStart = this.currentContext;
+    const analysis = await this.projectService.refreshGit(contextAtStart.activeEditor);
+    if (this.currentContext !== contextAtStart) {
+      return;
+    }
+
+    this.projectAnalysis = analysis;
+    this.nextStep = this.nextStepService.choose(this.currentContext, this.projectAnalysis);
+    this.publish();
+  }
+
+  private invalidateChangedProject(uri: vscode.Uri): void {
+    const relativePath = vscode.workspace.asRelativePath(uri, false);
+    if (isIgnoredProjectPath(relativePath)) {
+      return;
+    }
+
+    const changedRoot = this.projectService.invalidateUri(uri);
+    if (changedRoot?.uri === this.currentContext?.workspace.activeWorkspaceRoot?.uri) {
+      this.refresh({ forceProject: true });
+    }
   }
 
   private showNextHint(): void {

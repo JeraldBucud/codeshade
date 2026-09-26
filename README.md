@@ -53,9 +53,9 @@ Phase 1 detects ecosystems and build/package tools. Full AST or framework intell
 
 CodeShade analyzes the active workspace folder for deterministic local signals. In multi-root workspaces, Phase 1 treats the workspace folder containing the active editor as the active project, falling back to the first workspace folder when no editor is active.
 
-Project analysis is cached per workspace root. Cursor movement, selection changes, diagnostics and ordinary text edits refresh the fast editor context but do not rescan the whole project. Manual refresh and relevant source/metadata file changes refresh project intelligence.
+Project analysis keeps a structural index cached per workspace root. Cursor movement, selection changes, diagnostics and ordinary text edits refresh the fast editor context and derive active-file relationships from the cached index without rescanning the project. Manual refresh and relevant source/metadata file changes invalidate the affected root. In multi-root workspaces, changes outside the active root are cached for later but do not force the active Learning Mode view to rescan.
 
-CodeShade observes project files and local Git state. It does not run package scripts, tests, builds, hooks or project code.
+CodeShade discovers critical metadata files separately from the bounded source-file scan, so lock files and build wrappers such as `yarn.lock`, `gradlew` and `mvnw` can still be detected when source scanning is truncated. Local Git state is refreshed independently from structural project scanning. CodeShade does not run package scripts, tests, builds, hooks or project code.
 
 ## Development Setup
 

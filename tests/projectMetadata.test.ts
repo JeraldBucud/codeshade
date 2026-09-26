@@ -18,19 +18,27 @@ describe("project metadata", () => {
   });
 
   it("detects package managers and build tools only from evidence", () => {
-    const tools = detectTools(["pnpm-lock.yaml", "package.json", "pom.xml", "pyproject.toml"]);
+    const tools = detectTools([
+      "yarn.lock",
+      "mvnw",
+      "gradlew.bat",
+      "package.json",
+      "pyproject.toml"
+    ]);
 
-    expect(tools.map((tool) => tool.id)).toEqual(["pnpm", "maven", "pyproject"]);
+    expect(tools.map((tool) => tool.id)).toEqual(["yarn", "maven", "gradle", "pyproject"]);
   });
 
-  it("extracts package.json script names without executing them", () => {
+  it("extracts package.json string script names without executing them", () => {
     const summary = parsePackageJson(
       JSON.stringify({
         scripts: {
           test: "vitest run",
           build: "tsc",
           "lint:fix": "eslint --fix",
-          preview: "vite preview"
+          preview: "vite preview",
+          invalid: false,
+          nested: { command: "nope" }
         }
       })
     );

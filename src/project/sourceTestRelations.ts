@@ -64,10 +64,21 @@ function buildScriptCandidates(activePath: string): readonly RelatedFileCandidat
   const relation = isLikelyTestPath(activePath) ? "source" : "test";
 
   if (relation === "source") {
-    return [
+    const sourceCandidates = [
       candidate(`${dir}/${base}${sourceExt}`, "Related source file", "source", "high"),
       candidate(`${dir}/${base}${ext}`, "Related source file", "source", "medium")
     ];
+    const testDirMatch = /^(.*\/)?__tests__$/.exec(dir);
+    if (testDirMatch) {
+      const parentDir = testDirMatch[1]?.replace(/\/$/, "") ?? "";
+      const prefix = parentDir ? `${parentDir}/` : "";
+      return [
+        candidate(`${prefix}${base}${sourceExt}`, "Related source file", "source", "high"),
+        ...sourceCandidates
+      ];
+    }
+
+    return [...sourceCandidates];
   }
 
   const testNames = [

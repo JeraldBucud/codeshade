@@ -36,9 +36,12 @@ interface ChangedFile {
 }
 
 function parsePorcelainStatus(output: string): readonly ChangedFile[] {
+  if (output.includes("\0")) {
+    return parseNulPorcelainStatus(output);
+  }
+
   return output
     .split(/\r?\n/)
-    .map((line) => line.trimEnd())
     .filter((line) => line.length > 0)
     .map(parseStatusLine);
 }
@@ -61,6 +64,35 @@ function parseStatusLine(line: string): ChangedFile {
     return { path, status: "modified" };
   }
   return { path, status: "unknown" };
+}
+
+function parseNulPorcelainStatus(output: string): readonly ChangedFile[] {
+  const tokens = output.split("\0").filter((token) => token.length > 0);
+  const files: ChangedFile[] = [];
+
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index]!;
+    const code = token.slice(0, 2);
+    const path = normalizePath(token.slice(3));
+
+    if (code.includes("R")) {
+      files.push({ path, status: "renamed" });
+      index += 1;
+      continue;
+    }
+
+    if (code.includes("?")) {
+      files.push({ path, status: "untracked" });
+    } else if (code.includes("D")) {
+      files.push({ path, status: "deleted" });
+    } else if (code.trim().length > 0) {
+      files.push({ path, status: "modified" });
+    } else {
+      files.push({ path, status: "unknown" });
+    }
+  }
+
+  return files;
 }
 
 function statusForActiveFile(

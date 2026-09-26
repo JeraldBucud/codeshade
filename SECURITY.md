@@ -10,4 +10,4 @@ Please report security issues through GitHub issues for now, unless the issue co
 
 CodeShade does not include telemetry, analytics, cloud APIs, authentication, API keys, model downloads or background network communication. Reports about accidental data transmission or hidden external dependencies are treated as security issues.
 
-Phase 1 reads local project paths and small known metadata files such as `package.json`. Optional Git awareness reads local branch and working-tree status using bounded `git` subprocess calls with `shell: false`. CodeShade does not run project scripts, tests, builds, Git hooks or package managers automatically.
+Phase 1 reads local project paths and small known metadata files such as `package.json`. It discovers root metadata such as lock files and build wrappers separately from the bounded source scan, but it does not execute those files. Optional Git awareness reads local branch and NUL-delimited working-tree status using bounded `git` subprocess calls with `shell: false`. CodeShade does not run project scripts, tests, builds, Git hooks or package managers automatically.

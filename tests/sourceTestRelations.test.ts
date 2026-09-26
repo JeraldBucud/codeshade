@@ -14,6 +14,20 @@ describe("source/test relationships", () => {
     });
   });
 
+  it("relates TypeScript __tests__ files back to adjacent source files", () => {
+    const related = findRelatedFiles("src/__tests__/auth.spec.ts", [
+      "src/auth.ts",
+      "src/__tests__/auth.spec.ts"
+    ]);
+
+    expect(related[0]).toMatchObject({
+      path: "src/auth.ts",
+      relationship: "source",
+      exists: true,
+      confidence: "high"
+    });
+  });
+
   it("relates Python tests back to source files", () => {
     const related = findRelatedFiles("tests/test_auth.py", ["auth.py", "tests/test_auth.py"]);
 

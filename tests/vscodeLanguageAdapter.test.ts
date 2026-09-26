@@ -83,6 +83,20 @@ describe("VS Code language adapter", () => {
       targetFile: "src/LoginForm.ts",
       symbol: "LoginForm"
     });
+    expect(analysis.relationships[0]?.providerDerived).toBe(true);
+  });
+
+  it("ignores same-file definition provider results", async () => {
+    executeCommand
+      .mockResolvedValueOnce([symbol("LoginForm")])
+      .mockResolvedValueOnce([{ uri: { path: "/demo/src/App.ts" } }])
+      .mockResolvedValueOnce([]);
+
+    const analysis = await new VsCodeLanguageAdapter().analyzeDocument(documentInput());
+
+    expect(analysis.relationships.some((relationship) => relationship.type === "definition")).toBe(
+      false
+    );
   });
 
   it("bounds reference provider relationships", async () => {
@@ -101,6 +115,7 @@ describe("VS Code language adapter", () => {
       analysis.relationships.filter((relationship) => relationship.type === "reference")
     ).toHaveLength(1);
     expect(analysis.relationships[0]?.targetFile).toBe("src/Usage.ts");
+    expect(analysis.relationships[0]?.providerDerived).toBe(true);
   });
 
   it("ignores external definitions outside known project files", async () => {

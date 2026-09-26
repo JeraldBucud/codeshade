@@ -156,6 +156,65 @@ describe("language intelligence", () => {
     expect(cached.currentSymbol?.name).toBe("App");
   });
 
+  it("filters provider relationships when cursor movement changes the current symbol", async () => {
+    let calls = 0;
+    const adapter: LanguageProviderAdapter = {
+      analyzeDocument: (document) => {
+        calls += 1;
+        return Promise.resolve({
+          ...analysisFor(document),
+          symbols: [
+            {
+              name: "App",
+              kind: "function",
+              range: { startLine: 0, startCharacter: 0, endLine: 3, endCharacter: 1 },
+              selectionRange: { startLine: 0, startCharacter: 9, endLine: 0, endCharacter: 12 }
+            },
+            {
+              name: "Helper",
+              kind: "function",
+              range: { startLine: 5, startCharacter: 0, endLine: 7, endCharacter: 1 },
+              selectionRange: { startLine: 5, startCharacter: 9, endLine: 5, endCharacter: 15 }
+            }
+          ],
+          relationships: [
+            {
+              type: "definition",
+              target: "App",
+              targetFile: "src/AppDefinition.ts",
+              symbol: "App",
+              providerDerived: true,
+              confidence: "high",
+              reason: "VS Code resolved the local definition for the current symbol."
+            },
+            {
+              type: "renders",
+              target: "Header",
+              targetFile: "src/Header.tsx",
+              symbol: "Header",
+              confidence: "medium",
+              reason: "A JSX element with a component-style name appears in the active file."
+            }
+          ]
+        });
+      }
+    };
+    const service = new LanguageIntelligenceService(adapter);
+
+    await service.analyze(documentInput({ cursor: { line: 1, character: 2 } }));
+    const cached = service.getCached({
+      uri: "file:///demo/src/App.tsx",
+      version: 1,
+      cursor: { line: 6, character: 2 }
+    });
+
+    expect(calls).toBe(1);
+    expect(cached.currentSymbol?.name).toBe("Helper");
+    expect(cached.relationships).toEqual([
+      expect.objectContaining({ type: "renders", target: "Header" })
+    ]);
+  });
+
   it("does not call the provider again for the same document version", async () => {
     let calls = 0;
     const adapter: LanguageProviderAdapter = {

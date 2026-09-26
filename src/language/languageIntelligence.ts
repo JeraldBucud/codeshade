@@ -55,19 +55,13 @@ export class LanguageIntelligenceService {
         message: "Language analysis is starting."
       };
     if (cached.version !== document.version) return { ...cached.analysis, status: "partial" };
-    return {
-      ...cached.analysis,
-      currentSymbol: findContainingSymbol(cached.analysis.symbols, document.cursor)
-    };
+    return projectAnalysisForCursor(cached.analysis, document.cursor);
   }
 
   async analyze(document: LanguageDocumentInput, force = false): Promise<LanguageAnalysis> {
     const cached = this.cache.get(document.uri);
     if (!force && cached?.version === document.version) {
-      return {
-        ...cached.analysis,
-        currentSymbol: findContainingSymbol(cached.analysis.symbols, document.cursor)
-      };
+      return projectAnalysisForCursor(cached.analysis, document.cursor);
     }
 
     const generation = this.nextGeneration(document.uri);
@@ -78,10 +72,7 @@ export class LanguageIntelligenceService {
       );
       if (this.generations.get(document.uri) === generation) {
         this.setCache(document.uri, document.version, analysis);
-        return {
-          ...analysis,
-          currentSymbol: findContainingSymbol(analysis.symbols, document.cursor)
-        };
+        return projectAnalysisForCursor(analysis, document.cursor);
       }
       return this.getCached(document);
     } catch (error) {
@@ -115,4 +106,28 @@ export class LanguageIntelligenceService {
       this.cache.delete(firstKey);
     }
   }
+}
+
+function projectAnalysisForCursor(
+  analysis: LanguageAnalysis,
+  cursor: LanguageDocumentInput["cursor"]
+): LanguageAnalysis {
+  const currentSymbol = findContainingSymbol(analysis.symbols, cursor);
+  return {
+    ...analysis,
+    currentSymbol,
+    relationships: filterRelationshipsForSymbol(analysis.relationships, currentSymbol?.name)
+  };
+}
+
+function filterRelationshipsForSymbol(
+  relationships: LanguageAnalysis["relationships"],
+  currentSymbolName: string | undefined
+): LanguageAnalysis["relationships"] {
+  return relationships.filter((relationship) => {
+    if (!relationship.providerDerived) {
+      return true;
+    }
+    return currentSymbolName !== undefined && relationship.symbol === currentSymbolName;
+  });
 }

@@ -90,7 +90,13 @@ export class NextStepService {
 
     const projectSteps = collectProjectSteps(projectAnalysis);
     steps.push(...projectSteps);
-    steps.push(...collectLanguageSteps(languageAnalysis, frameworkDetections));
+    steps.push(
+      ...collectLanguageSteps(
+        languageAnalysis,
+        frameworkDetections,
+        editor.relativePath ?? editor.fileName
+      )
+    );
 
     if (!context.project.activeFileIsTest) {
       steps.push({
@@ -122,10 +128,13 @@ export class NextStepService {
 
 function collectLanguageSteps(
   languageAnalysis: LanguageAnalysis | undefined,
-  frameworkDetections: readonly FrameworkDetection[]
+  frameworkDetections: readonly FrameworkDetection[],
+  activePath: string | undefined
 ): readonly NextStep[] {
   const steps: NextStep[] = [];
-  const firstRelationship = languageAnalysis?.relationships[0];
+  const firstRelationship = languageAnalysis?.relationships.find(
+    (relationship) => !pointsToActiveFile(relationship.targetFile, activePath)
+  );
   const currentSymbol = languageAnalysis?.currentSymbol;
   const firstFramework = frameworkDetections[0];
 
@@ -160,6 +169,18 @@ function collectLanguageSteps(
   }
 
   return steps;
+}
+
+function pointsToActiveFile(
+  targetFile: string | undefined,
+  activePath: string | undefined
+): boolean {
+  if (!targetFile || !activePath) {
+    return false;
+  }
+  const normalizedTarget = targetFile.replaceAll("\\", "/");
+  const normalizedActive = activePath.replaceAll("\\", "/");
+  return normalizedActive === normalizedTarget || normalizedActive.endsWith(`/${normalizedTarget}`);
 }
 
 function relationshipDetail(

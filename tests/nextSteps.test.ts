@@ -374,4 +374,45 @@ describe("next step service", () => {
     expect(step.id).toBe("inspect-react");
     expect(step.detail).toContain("imports React");
   });
+
+  it("does not recommend the active file as its own provider definition", () => {
+    const service = new NextStepService();
+    const step = service.choose(
+      {
+        status: "ready",
+        workspace,
+        project: { activeFileIsTest: false },
+        activeEditor: {
+          fileName: "app.tsx",
+          relativePath: "src/app.tsx",
+          languageId: "typescriptreact",
+          isUntitled: false,
+          isDirty: false,
+          lineCount: 5,
+          diagnostics: [],
+          todoMarkers: []
+        }
+      },
+      undefined,
+      {
+        ...languageAnalysis,
+        relationships: [
+          {
+            type: "definition",
+            target: "App",
+            targetFile: "src/app.tsx",
+            symbol: "App",
+            providerDerived: true,
+            confidence: "high",
+            reason: "VS Code resolved the local definition for the current symbol."
+          },
+          ...languageAnalysis.relationships
+        ]
+      },
+      []
+    );
+
+    expect(step.id).toBe("inspect-renders");
+    expect(step.detail).toContain("Header");
+  });
 });

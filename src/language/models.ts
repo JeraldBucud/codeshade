@@ -39,6 +39,7 @@ export interface LanguageRelationship {
   readonly target: string;
   readonly targetFile?: string;
   readonly symbol?: string;
+  readonly providerDerived?: boolean;
   readonly confidence: "high" | "medium" | "low";
   readonly reason: string;
 }

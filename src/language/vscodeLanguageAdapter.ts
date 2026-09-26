@@ -70,12 +70,13 @@ async function collectProviderRelationships(
     for (const target of (definitions ?? []).slice(0, 5)) {
       const targetUri = "uri" in target ? target.uri : target.targetUri;
       const targetFile = projectRelativeUri(targetUri, document);
-      if (targetFile) {
+      if (targetFile && targetFile !== document.projectRelativePath) {
         relationships.push({
           type: "definition",
           target: currentSymbol.name,
           targetFile,
           symbol: currentSymbol.name,
+          providerDerived: true,
           confidence: "high",
           reason: "VS Code resolved the local definition for the current symbol."
         });
@@ -99,6 +100,7 @@ async function collectProviderRelationships(
           target: currentSymbol.name,
           targetFile,
           symbol: currentSymbol.name,
+          providerDerived: true,
           confidence: "medium",
           reason: "VS Code found a local project reference for the current symbol."
         });

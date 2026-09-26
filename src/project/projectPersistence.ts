@@ -23,7 +23,7 @@ export interface PersistentProjectManifest {
   readonly lastKnownRootUri: string;
 }
 
-export interface ProjectPersistenceDependencies extends ProjectIdentityFactory {}
+export type ProjectPersistenceDependencies = ProjectIdentityFactory;
 
 export class ProjectPersistenceService {
   private readonly stateByRoot = new Map<string, ProjectPersistenceSummary>();

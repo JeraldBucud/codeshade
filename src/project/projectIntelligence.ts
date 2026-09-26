@@ -4,10 +4,12 @@ import type {
   ActiveEditorContext,
   GitProjectState,
   ProjectAnalysis,
+  ProjectPersistenceSummary,
   WorkspaceRoot
 } from "../core/models";
 import { readGitState } from "./gitAdapter";
 import { ProjectIndexCache } from "./projectCache";
+import type { ProjectPersistenceService } from "./projectPersistence";
 import { dirname, normalizePath } from "./pathUtils";
 import {
   isPathInsideProject,
@@ -54,9 +56,13 @@ export class ProjectIntelligenceService {
   private readonly adapter: ProjectWorkspaceAdapter;
   private gitCache = new Map<string, GitProjectState>();
   private gitGenerations = new Map<string, number>();
+  private persistenceState = new Map<string, ProjectPersistenceSummary>();
   private analyzing = new Set<string>();
 
-  constructor(adapter: ProjectWorkspaceAdapter = createVsCodeProjectAdapter()) {
+  constructor(
+    adapter: ProjectWorkspaceAdapter = createVsCodeProjectAdapter(),
+    private readonly persistenceService?: ProjectPersistenceService
+  ) {
     this.adapter = adapter;
   }
 
@@ -98,6 +104,7 @@ export class ProjectIntelligenceService {
 
     const root = resolution.projectRoot;
     const activeFile = resolution.activeFile;
+    await this.ensurePersistence(root);
     const cached = this.cache.get(root.uri);
     if (!options.force && cached) {
       const git = options.refreshGit
@@ -191,6 +198,15 @@ export class ProjectIntelligenceService {
     });
   }
 
+  private async ensurePersistence(root: WorkspaceRoot): Promise<void> {
+    if (!this.persistenceService) {
+      return;
+    }
+
+    const state = await this.persistenceService.ensureProject(root);
+    this.persistenceState.set(root.uri, state);
+  }
+
   private async refreshGitForRoot(
     root: WorkspaceRoot,
     activeFile: string | undefined
@@ -229,7 +245,8 @@ export class ProjectIntelligenceService {
           isRepository: false,
           error: "Git state has not been refreshed yet."
         }
-      })
+      }),
+      persistence: this.persistenceState.get(index.root.uri)
     };
   }
 }
